@@ -1,2 +1,1 @@
-# frontend-apps-lab
-Frontend apps lab
+# Frontend Apps Lab
