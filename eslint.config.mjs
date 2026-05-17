@@ -1,0 +1,35 @@
+import nx from '@nx/eslint-plugin';
+
+export default [
+  ...nx.configs['flat/base'],
+  ...nx.configs['flat/typescript'],
+  ...nx.configs['flat/javascript'],
+  {
+    ignores: [
+      '**/dist',
+      '**/vite.config.*.timestamp*',
+      '**/vitest.config.*.timestamp*',
+      '**/nuxt.config.*.timestamp*',
+      '**/.nuxt',
+      '**/.output',
+    ],
+  },
+  {
+    files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.vue'],
+    rules: {
+      '@nx/enforce-module-boundaries': [
+        'error',
+        {
+          enforceBuildableLibDependency: true,
+          allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?js$'],
+          depConstraints: [
+            {
+              sourceTag: '*',
+              onlyDependOnLibsWithTags: ['*'],
+            },
+          ],
+        },
+      ],
+    },
+  },
+];
