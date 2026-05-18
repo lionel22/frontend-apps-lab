@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import type { WeightProfileUpdatePayload } from '~/types/trader';
+import type { AuditLogFilters, WeightProfileUpdatePayload } from '~/types/trader';
 import { useTraderStore } from '~/stores/trader';
 
 const trader = useTraderStore();
+let lastAuditFilters: AuditLogFilters = {};
 
 async function refresh(force = false) {
   await Promise.all([
     trader.fetchConfig(force),
-    trader.fetchAuditLog(0, trader.auditLog.limit, undefined, undefined, force),
+    trader.fetchAuditLog(0, trader.auditLog.limit, lastAuditFilters, force),
   ]);
 }
 
@@ -22,11 +23,12 @@ async function onSubmit(payload: WeightProfileUpdatePayload) {
 }
 
 async function onAuditPageChange(offset: number, limit: number) {
-  await trader.fetchAuditLog(offset, limit, undefined, undefined, true);
+  await trader.fetchAuditLog(offset, limit, lastAuditFilters, true);
 }
 
-async function onAuditFilter(payload: { actor?: string; type?: string }) {
-  await trader.fetchAuditLog(0, trader.auditLog.limit, payload.actor, payload.type, true);
+async function onAuditFilter(payload: AuditLogFilters) {
+  lastAuditFilters = payload;
+  await trader.fetchAuditLog(0, trader.auditLog.limit, payload, true);
 }
 </script>
 

@@ -40,6 +40,24 @@ export function validateBacktestLaunch(
     errors.marketScope = 'Market scope must be spot.';
   }
 
+  if (payload.startDate && Number.isNaN(Date.parse(payload.startDate))) {
+    errors.startDate = 'Start date must be a valid ISO date.';
+  }
+
+  if (payload.endDate && Number.isNaN(Date.parse(payload.endDate))) {
+    errors.endDate = 'End date must be a valid ISO date.';
+  }
+
+  if (
+    payload.startDate &&
+    payload.endDate &&
+    !Number.isNaN(Date.parse(payload.startDate)) &&
+    !Number.isNaN(Date.parse(payload.endDate)) &&
+    Date.parse(payload.startDate) > Date.parse(payload.endDate)
+  ) {
+    errors.dateRange = 'Start date must be before end date.';
+  }
+
   return errors;
 }
 

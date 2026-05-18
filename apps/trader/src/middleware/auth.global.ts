@@ -19,6 +19,10 @@ export default defineNuxtRouteMiddleware((to) => {
     return;
   }
 
+  if (process.server && session.requireAuth.value && !session.isAuthenticated.value) {
+    return;
+  }
+
   if (session.requireAuth.value && !session.isAuthenticated.value) {
     return navigateTo({
       path: '/login',

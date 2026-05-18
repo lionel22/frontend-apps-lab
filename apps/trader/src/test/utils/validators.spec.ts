@@ -15,6 +15,18 @@ describe('validators', () => {
     expect(errors.symbols).toBeTruthy();
   });
 
+  it('rejects inverted backtest date ranges', () => {
+    const errors = validateBacktestLaunch({
+      symbols: ['BTC/USDT'],
+      timeframe: '4h',
+      marketScope: 'spot',
+      startDate: '2026-05-10T00:00:00.000Z',
+      endDate: '2026-05-01T00:00:00.000Z',
+    });
+
+    expect(errors.dateRange).toBe('Start date must be before end date.');
+  });
+
   it('requires actor and reason for control actions', () => {
     const errors = validateControlAction('', '');
     expect(errors.actor).toBeTruthy();

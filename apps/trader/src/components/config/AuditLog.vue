@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { reactive } from 'vue';
-import type { AuditLogResponse } from '~/types/trader';
+import { computed, reactive } from 'vue';
+import type { AuditLogFilters, AuditLogResponse } from '~/types/trader';
 import { formatDateTime } from '~/utils/formatters';
+import { AUDIT_SEVERITY_OPTIONS } from '~/utils/domain';
+import {
+  toUtcEndOfDayIso,
+  toUtcStartOfDayIso,
+} from '~/utils/date-boundaries';
 
 const props = defineProps<{
   response: AuditLogResponse;
@@ -9,19 +14,43 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  filter: [payload: { actor?: string; type?: string }];
+  filter: [payload: AuditLogFilters];
   'page-change': [offset: number, limit: number];
 }>();
 
 const filters = reactive({
   actor: '',
   type: '',
+  severity: undefined as AuditLogFilters['severity'],
+  fromDate: '',
+  toDate: '',
+});
+const localError = computed(() => {
+  if (!filters.fromDate || !filters.toDate) {
+    return '';
+  }
+
+  return filters.fromDate > filters.toDate
+    ? 'From date must be before or equal to To date.'
+    : '';
+});
+
+const typeOptions = computed(() => {
+  const set = new Set(props.response.items.map((entry) => entry.type));
+  return Array.from(set).sort();
 });
 
 function applyFilters() {
+  if (localError.value) {
+    return;
+  }
+
   emit('filter', {
     actor: filters.actor || undefined,
     type: filters.type || undefined,
+    severity: filters.severity,
+    from: filters.fromDate ? toUtcStartOfDayIso(filters.fromDate) : undefined,
+    to: filters.toDate ? toUtcEndOfDayIso(filters.toDate) : undefined,
   });
 }
 
@@ -65,20 +94,61 @@ function nextPage() {
             label="Actor"
             density="compact"
             variant="outlined"
+            clearable
           />
         </v-col>
         <v-col cols="12" md="4">
-          <v-text-field
+          <v-combobox
             v-model="filters.type"
+            :items="typeOptions"
             label="Event Type"
             density="compact"
             variant="outlined"
+            clearable
+            hint="Pick a known event type or type one manually."
+            persistent-hint
           />
         </v-col>
-        <v-col cols="12" md="4" class="d-flex align-center">
+        <v-col cols="12" md="4">
+          <v-select
+            v-model="filters.severity"
+            :items="AUDIT_SEVERITY_OPTIONS"
+            label="Severity"
+            density="compact"
+            variant="outlined"
+            item-title="title"
+            item-value="value"
+            clearable
+          />
+        </v-col>
+        <v-col cols="12" md="3">
+          <v-text-field
+            v-model="filters.fromDate"
+            label="From"
+            type="date"
+            density="compact"
+            variant="outlined"
+            clearable
+          />
+        </v-col>
+        <v-col cols="12" md="3">
+          <v-text-field
+            v-model="filters.toDate"
+            label="To"
+            type="date"
+            density="compact"
+            variant="outlined"
+            clearable
+          />
+        </v-col>
+        <v-col cols="12" md="2" class="d-flex align-center">
           <v-btn color="primary" variant="tonal" @click="applyFilters">Apply Filters</v-btn>
         </v-col>
       </v-row>
+
+      <v-alert v-if="localError" type="warning" variant="tonal" class="mb-4">
+        {{ localError }}
+      </v-alert>
 
       <SharedLoadingSpinner v-if="loading" inline label="Refreshing audit entries..." />
 
@@ -103,7 +173,11 @@ function nextPage() {
             <td>{{ formatDateTime(entry.timestamp) }}</td>
             <td>{{ entry.type }}</td>
             <td>
-              <v-chip size="small" variant="tonal" :color="entry.severity === 'ERROR' ? 'error' : 'info'">
+              <v-chip
+                size="small"
+                variant="tonal"
+                :color="entry.severity === 'CRITICAL' ? 'error' : entry.severity === 'WARNING' ? 'warning' : 'info'"
+              >
                 {{ entry.severity }}
               </v-chip>
             </td>

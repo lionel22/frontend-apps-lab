@@ -8,6 +8,8 @@ import CorrelationMatrix from '~/components/signals/CorrelationMatrix.vue';
 import PositionsTable from '~/components/positions/PositionsTable.vue';
 import TradesTable from '~/components/trades/TradesTable.vue';
 import ConfigForm from '~/components/config/ConfigForm.vue';
+import BacktestLaunchModal from '~/components/backtest/BacktestLaunchModal.vue';
+import ConfigAuditLog from '~/components/config/AuditLog.vue';
 
 const PassThrough = {
   template: '<div><slot /></div>',
@@ -28,13 +30,35 @@ const ButtonStub = {
 const TextFieldStub = {
   props: {
     modelValue: {
-      type: [String, Number],
+      type: [String, Number, Array],
+      default: '',
+    },
+    label: {
+      type: String,
       default: '',
     },
   },
   emits: ['update:modelValue'],
+  methods: {
+    onInput(event: Event) {
+      const target = event.target as HTMLInputElement;
+      const rawValue = target.value;
+      if (Array.isArray(this.modelValue)) {
+        this.$emit(
+          'update:modelValue',
+          rawValue
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        );
+        return;
+      }
+
+      this.$emit('update:modelValue', rawValue);
+    },
+  },
   template:
-    '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+    '<label><span>{{ label }}</span><input :value="Array.isArray(modelValue) ? modelValue.join(\',\') : modelValue" @input="onInput" /></label>',
 };
 
 const globalStubs = {
@@ -47,8 +71,11 @@ const globalStubs = {
   VCardActions: PassThrough,
   VTable: PassThrough,
   VChip: PassThrough,
+  VDialog: PassThrough,
   VBtn: ButtonStub,
   VTextField: TextFieldStub,
+  VSelect: TextFieldStub,
+  VCombobox: TextFieldStub,
   VDivider: PassThrough,
   VSpacer: PassThrough,
   VAlert: PassThrough,
@@ -117,6 +144,7 @@ describe('component slices', () => {
             rankScore: 0.91,
             sectorBucket: 'L1',
             liquidityTier: 'tier-1',
+            selectionSource: 'auto',
             filterResults: {},
             scoringMetadata: {},
             updatedAt: '2026-05-17T12:00:00.000Z',
@@ -310,5 +338,105 @@ describe('component slices', () => {
     expect(payload.actor.length).toBeGreaterThan(0);
     expect(payload.weights['signal.momentum']).toBe(1);
     expect(payload.thresholds['entry.minScore']).toBe(0.55);
+  });
+
+  it('emits normalized payload from the backtest launch modal', async () => {
+    const wrapper = mountWithStubs(BacktestLaunchModal, {
+      props: {
+        modelValue: true,
+        loading: false,
+        symbolOptions: ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'],
+      },
+    });
+
+    const dateInputs = wrapper.findAll('input');
+    const startDateInput = dateInputs.find((input) => input.element.previousSibling?.textContent === 'Start Date');
+    const endDateInput = dateInputs.find((input) => input.element.previousSibling?.textContent === 'End Date');
+
+    expect(startDateInput).toBeTruthy();
+    expect(endDateInput).toBeTruthy();
+    if (!startDateInput || !endDateInput) {
+      throw new Error('Expected start and end date inputs to exist.');
+    }
+
+    await startDateInput.setValue('2026-01-01');
+    await endDateInput.setValue('2026-01-31');
+
+    const launchButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Launch'));
+    expect(launchButton).toBeTruthy();
+    if (!launchButton) {
+      throw new Error('Expected Launch button to exist in BacktestLaunchModal test.');
+    }
+
+    await launchButton.trigger('click');
+
+    const emitted = wrapper.emitted('launch');
+    expect(emitted).toBeTruthy();
+    expect(emitted?.[0]?.[0]).toEqual({
+      symbols: ['BTC/USDT', 'ETH/USDT'],
+      days: undefined,
+      timeframe: '4h',
+      profileName: 'spot-swing-default',
+      startDate: '2026-01-01T00:00:00.000Z',
+      endDate: '2026-01-31T23:59:59.999Z',
+      marketScope: 'spot',
+    });
+  });
+
+  it('emits normalized audit log filters with date boundaries', async () => {
+    const wrapper = mountWithStubs(ConfigAuditLog, {
+      props: {
+        response: {
+          items: [
+            {
+              id: 'audit-1',
+              type: 'KILL_SWITCH_ENGAGED',
+              severity: 'CRITICAL',
+              message: 'Kill-switch engaged by operator',
+              actor: 'operator',
+              reason: 'manual',
+              timestamp: '2026-05-17T11:00:00.000Z',
+            },
+          ],
+          total: 1,
+          offset: 0,
+          limit: 50,
+        },
+        loading: false,
+      },
+    });
+
+    const inputs = wrapper.findAll('input');
+    const fromInput = inputs.find((input) => input.element.previousSibling?.textContent === 'From');
+    const toInput = inputs.find((input) => input.element.previousSibling?.textContent === 'To');
+
+    expect(fromInput).toBeTruthy();
+    expect(toInput).toBeTruthy();
+    if (!fromInput || !toInput) {
+      throw new Error('Expected audit date inputs to exist.');
+    }
+
+    await fromInput.setValue('2026-05-01');
+    await toInput.setValue('2026-05-31');
+
+    const applyButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Apply Filters'));
+    expect(applyButton).toBeTruthy();
+    if (!applyButton) {
+      throw new Error('Expected Apply Filters button to exist in ConfigAuditLog test.');
+    }
+
+    await applyButton.trigger('click');
+
+    expect(wrapper.emitted('filter')?.[0]?.[0]).toEqual({
+      actor: undefined,
+      type: undefined,
+      severity: undefined,
+      from: '2026-05-01T00:00:00.000Z',
+      to: '2026-05-31T23:59:59.999Z',
+    });
   });
 });

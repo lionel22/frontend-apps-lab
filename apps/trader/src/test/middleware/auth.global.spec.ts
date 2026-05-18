@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const session = {
   requireAuth: ref(false),
   isAuthenticated: ref(true),
+  hydratedOnClient: ref(true),
 };
 
 vi.mock('~/composables/useSession', () => ({
@@ -16,6 +17,7 @@ describe('auth.global middleware', () => {
   beforeEach(() => {
     session.requireAuth.value = false;
     session.isAuthenticated.value = true;
+    session.hydratedOnClient.value = true;
     vi.mocked(globalThis.navigateTo).mockClear();
   });
 
@@ -33,6 +35,33 @@ describe('auth.global middleware', () => {
       path: '/login',
       query: { redirect: '/status' },
     });
+  });
+
+  it('does not redirect during server-side evaluation', async () => {
+    session.requireAuth.value = true;
+    session.isAuthenticated.value = false;
+
+    const originalProcess = globalThis.process;
+    Object.defineProperty(globalThis, 'process', {
+      value: { ...originalProcess, server: true, client: false },
+      configurable: true,
+    });
+
+    try {
+      const result = await middleware({
+        path: '/status',
+        fullPath: '/status',
+        query: {},
+      } as never);
+
+      expect(result).toBeUndefined();
+      expect(globalThis.navigateTo).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(globalThis, 'process', {
+        value: originalProcess,
+        configurable: true,
+      });
+    }
   });
 
   it('allows the login route for unauthenticated sessions', async () => {

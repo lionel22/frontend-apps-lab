@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import type { ApiError } from '~/types/api';
 import type {
   AuditLogResponse,
+  AuditLogFilters,
   BacktestLaunchPayload,
   BacktestRunDetail,
   BacktestRunSummary,
@@ -15,6 +16,7 @@ import type {
   Trade,
   TraderResourceKey,
   WatchlistAsset,
+  WatchlistRebuildResponse,
   WeightProfile,
   WeightProfileUpdatePayload,
 } from '~/types/trader';
@@ -175,6 +177,62 @@ export const useTraderStore = defineStore('trader', () => {
     return result;
   }
 
+  async function refreshWatchlistState() {
+    const [nextWatchlist, nextStatus] = await Promise.all([
+      api.fetchWatchlist(),
+      api.fetchStatus(),
+    ]);
+
+    watchlist.value = nextWatchlist;
+    status.value = nextStatus;
+    cache.touch('watchlist');
+    cache.touch('status');
+  }
+
+  async function runWatchlistMutation<T>(
+    action: () => Promise<T>,
+    successMessage: (result: T) => string,
+  ): Promise<T | null> {
+    setLoading('watchlist', true);
+    setError('watchlist', null);
+
+    try {
+      const result = await action();
+      await refreshWatchlistState();
+      ui.addAlert({
+        type: 'success',
+        message: successMessage(result),
+      });
+      return result;
+    } catch (error) {
+      setError('watchlist', extractApiMessage(error));
+      return null;
+    } finally {
+      setLoading('watchlist', false);
+    }
+  }
+
+  async function rebuildWatchlist() {
+    return runWatchlistMutation<WatchlistRebuildResponse>(
+      () => api.rebuildWatchlist(),
+      (result) => `Watchlist rebuilt successfully (${result.selectedCount} assets).`,
+    );
+  }
+
+  async function addWatchlistAsset(symbol: string) {
+    return runWatchlistMutation<WatchlistAsset>(
+      () => api.addWatchlistAsset(symbol),
+      (result) => `${result.symbol} added to the watchlist.`,
+    );
+  }
+
+  async function removeWatchlistAsset(symbol: string) {
+    return runWatchlistMutation<{ ok: true }>(
+      () => api.removeWatchlistAsset(symbol),
+      () => `${symbol} removed from the watchlist.`,
+    );
+  }
+
   async function fetchSignals(force = false) {
     if (!shouldFetch('signals', force)) {
       return signals.value;
@@ -294,8 +352,7 @@ export const useTraderStore = defineStore('trader', () => {
   async function fetchAuditLog(
     offset = ui.filters.auditOffset,
     limit = ui.filters.auditLimit,
-    actor?: string,
-    type?: string,
+    filters: AuditLogFilters = {},
     force = false,
   ) {
     if (!shouldFetch('auditLog', force) && auditLog.value.offset === offset) {
@@ -306,7 +363,7 @@ export const useTraderStore = defineStore('trader', () => {
     ui.updateFilter('auditLimit', limit);
 
     const result = await runResourceAction('auditLog', () =>
-      api.fetchAuditLog(offset, limit, actor, type),
+      api.fetchAuditLog(offset, limit, filters),
     );
     if (result) {
       auditLog.value = result;
@@ -425,6 +482,9 @@ export const useTraderStore = defineStore('trader', () => {
     isKillSwitchActive,
     fetchStatus,
     fetchWatchlist,
+    rebuildWatchlist,
+    addWatchlistAsset,
+    removeWatchlistAsset,
     fetchSignals,
     fetchSignalDetail,
     fetchPositions,

@@ -1,31 +1,30 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import type { AuditLogFilters } from '~/types/trader';
 import { useTraderStore } from '~/stores/trader';
 
 const trader = useTraderStore();
-const lastFilter = ref<{ actor?: string; type?: string }>({});
+const lastFilter = ref<AuditLogFilters>({});
 
 onMounted(async () => {
   await trader.fetchAuditLog(
     trader.auditLog.offset,
     trader.auditLog.limit,
-    undefined,
-    undefined,
+    {},
     true,
   );
 });
 
-async function onFilter(payload: { actor?: string; type?: string }) {
+async function onFilter(payload: AuditLogFilters) {
   lastFilter.value = payload;
-  await trader.fetchAuditLog(0, trader.auditLog.limit, payload.actor, payload.type, true);
+  await trader.fetchAuditLog(0, trader.auditLog.limit, payload, true);
 }
 
 async function onPageChange(offset: number, limit: number) {
   await trader.fetchAuditLog(
     offset,
     limit,
-    lastFilter.value.actor,
-    lastFilter.value.type,
+    lastFilter.value,
     true,
   );
 }

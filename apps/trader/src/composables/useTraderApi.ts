@@ -2,20 +2,29 @@ import { ref, watch, type Ref, type WatchSource } from 'vue';
 import type { ApiError, ApiRequestOptions } from '~/types/api';
 import type {
   AuditLogEntry,
+  AuditLogFilters,
+  AuditSeverity,
   AuditLogResponse,
   BacktestLaunchPayload,
   BacktestRunDetail,
+  BacktestRunStatus,
   BacktestRunSummary,
+  BacktestTimeframe,
   ControlActionPayload,
+  MarketScope,
   PagedResponse,
   Position,
+  PositionSide,
+  SignalTimeframe,
   SignalCorrelationResponse,
   SignalCorrelationSummaryItem,
   SignalCorrelationWindow,
   SignalView,
   StatusSnapshot,
   Trade,
+  TradeSide,
   WatchlistAsset,
+  WatchlistRebuildResponse,
   WeightProfile,
   WeightProfileUpdatePayload,
 } from '~/types/trader';
@@ -81,6 +90,58 @@ function parseString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
 }
 
+function parseMarketScope(value: unknown): MarketScope {
+  const marketScope = parseString(value, 'spot');
+  return marketScope === 'isolated_margin' ||
+    marketScope === 'legacy_futures'
+    ? marketScope
+    : 'spot';
+}
+
+function parseSignalTimeframe(value: unknown): SignalTimeframe {
+  const timeframe = parseString(value, '1h');
+  if (timeframe === '4h' || timeframe === '1d') {
+    return timeframe;
+  }
+  return '1h';
+}
+
+function parseBacktestTimeframe(value: unknown): BacktestTimeframe | undefined {
+  const timeframe = parseString(value);
+  if (timeframe === '4h' || timeframe === '1d') {
+    return timeframe;
+  }
+  return undefined;
+}
+
+function parseBacktestRunStatus(value: unknown): BacktestRunStatus {
+  const status = parseString(value, 'PENDING');
+  if (
+    status === 'RUNNING' ||
+    status === 'COMPLETED' ||
+    status === 'FAILED'
+  ) {
+    return status;
+  }
+  return 'PENDING';
+}
+
+function parseAuditSeverity(value: unknown): AuditSeverity {
+  const severity = parseString(value, 'INFO');
+  if (severity === 'WARNING' || severity === 'CRITICAL') {
+    return severity;
+  }
+  return 'INFO';
+}
+
+function parsePositionSide(value: unknown): PositionSide {
+  return parseString(value, 'LONG') === 'SHORT' ? 'SHORT' : 'LONG';
+}
+
+function parseTradeSide(value: unknown): TradeSide {
+  return parseString(value, 'LONG') === 'SHORT' ? 'SHORT' : 'LONG';
+}
+
 function normalizeNumericRecord(value: unknown): Record<string, number> {
   const result: Record<string, number> = {};
   for (const [key, entry] of Object.entries(asRecord(value))) {
@@ -94,7 +155,7 @@ function mapStatusSnapshot(value: unknown): StatusSnapshot {
   const capabilities = asRecord(row.capabilities);
 
   return {
-    marketScope: 'spot',
+    marketScope: parseMarketScope(row.marketScope),
     tradingMode:
       parseString(row.tradingMode, 'backtest') === 'live'
         ? 'live'
@@ -119,6 +180,7 @@ function mapWatchlistAsset(value: unknown): WatchlistAsset {
   const row = asRecord(value);
   const filterResults = asRecord(row.filterResults);
   const scoringMetadata = asRecord(row.scoringMetadata);
+  const manualSelectionMode = parseString(filterResults.manualSelectionMode);
   const liquidityTierCandidate =
     parseString(row.liquidityTier) ||
     parseString(filterResults.liquidityTier) ||
@@ -128,10 +190,12 @@ function mapWatchlistAsset(value: unknown): WatchlistAsset {
   return {
     id: parseString(row.id, parseString(row.symbol, '')),
     symbol: parseString(row.symbol),
-    marketScope: parseString(row.marketScope, 'spot'),
+    marketScope: parseMarketScope(row.marketScope),
     rankScore: parseNumber(row.rankScore),
     sectorBucket: parseString(row.sectorBucket) || null,
     liquidityTier: liquidityTierCandidate,
+    selectionSource:
+      manualSelectionMode === 'manual_include' ? 'manual' : 'auto',
     filterResults,
     scoringMetadata,
     updatedAt: parseIsoDate(row.updatedAt),
@@ -148,7 +212,7 @@ function mapSignalView(value: unknown): SignalView {
 
   return {
     symbol: parseString(row.symbol),
-    timeframe: parseString(row.timeframe, '1h'),
+    timeframe: parseSignalTimeframe(row.timeframe),
     compositeScore: parseNumber(row.compositeScore),
     confidence: parseNumber(row.confidence),
     contributions,
@@ -163,7 +227,7 @@ function mapPosition(value: unknown): Position {
   return {
     id: parseString(row.id),
     symbol: parseString(row.symbol),
-    side: parseString(row.side),
+    side: parsePositionSide(row.side),
     quantity: parseNumber(row.quantity),
     entryPrice: parseNumber(row.entryPrice),
     markPrice: parseNumber(row.markPrice),
@@ -185,8 +249,8 @@ function mapTrade(value: unknown): Trade {
     positionId:
       row.positionId === null ? null : parseString(row.positionId) || null,
     symbol: parseString(row.symbol),
-    marketScope: parseString(row.marketScope, 'spot'),
-    side: parseString(row.side),
+    marketScope: parseMarketScope(row.marketScope),
+    side: parseTradeSide(row.side),
     entryPrice: parseNumber(row.entryPrice),
     exitPrice: parseNumber(row.exitPrice),
     quantity: parseNumber(row.quantity),
@@ -234,17 +298,16 @@ function mapBacktestSummary(value: unknown): BacktestRunSummary {
 
   return {
     id: parseString(row.id),
-    status: (parseString(row.status, 'PENDING') as BacktestRunSummary['status']) ??
-      'PENDING',
-    marketScope: parseString(row.marketScope, 'spot'),
+    status: parseBacktestRunStatus(row.status),
+    marketScope: parseMarketScope(row.marketScope),
     params: {
       symbols: asStringArray(params.symbols),
       days: parseNumber(params.days) || undefined,
-      timeframe: parseString(params.timeframe) || undefined,
+      timeframe: parseBacktestTimeframe(params.timeframe),
       profileName: parseString(params.profileName) || undefined,
       startDate: parseString(params.startDate) || null,
       endDate: parseString(params.endDate) || null,
-      marketScope: parseString(params.marketScope) || 'spot',
+      marketScope: parseMarketScope(params.marketScope),
     },
     metrics: normalizeNumericRecord(row.metrics),
     startedAt: parseIsoDate(row.startedAt) || null,
@@ -257,7 +320,7 @@ function mapBacktestTrade(value: unknown) {
   const row = asRecord(value);
   return {
     symbol: parseString(row.symbol),
-    side: parseString(row.side),
+    side: parseTradeSide(row.side),
     entryPrice: parseNumber(row.entryPrice),
     exitPrice: parseNumber(row.exitPrice),
     quantity: parseNumber(row.quantity),
@@ -298,7 +361,7 @@ function mapWeightProfile(value: unknown): WeightProfile {
   const row = asRecord(value);
   return {
     id: parseString(row.id),
-    marketScope: parseString(row.marketScope, 'spot'),
+    marketScope: parseMarketScope(row.marketScope),
     version: parseNumber(row.version),
     isActive: parseBoolean(row.isActive, true),
     weights: normalizeNumericRecord(row.weights),
@@ -318,7 +381,7 @@ function mapAuditLogEntry(value: unknown): AuditLogEntry {
   return {
     id: parseString(row.id),
     type: parseString(row.type),
-    severity: parseString(row.severity, 'INFO'),
+    severity: parseAuditSeverity(row.severity),
     message: parseString(row.message),
     actor: actorValue.length ? actorValue : null,
     reason: reasonValue.length ? reasonValue : null,
@@ -543,6 +606,35 @@ export function useTraderContracts() {
         return rows.map(mapWatchlistAsset);
       }),
 
+    rebuildWatchlist: () =>
+      request(API_ENDPOINTS.watchlistRebuild, { method: 'POST' }, (payload) => {
+        const row = asRecord(payload);
+        return {
+          ok: true,
+          selectedCount: parseNumber(row.selectedCount),
+        } satisfies WatchlistRebuildResponse;
+      }),
+
+    addWatchlistAsset: (symbol: string) =>
+      request(
+        API_ENDPOINTS.watchlistAssets,
+        {
+          method: 'POST',
+          body: { symbol },
+        },
+        mapWatchlistAsset,
+      ),
+
+    removeWatchlistAsset: (symbol: string) =>
+      request(
+        API_ENDPOINTS.watchlistAssetRemove,
+        {
+          method: 'POST',
+          body: { symbol },
+        },
+        mapVoidOk,
+      ),
+
     fetchSignals: () =>
       request(API_ENDPOINTS.signals, { method: 'GET' }, (payload) => {
         const rows = Array.isArray(payload) ? payload : [];
@@ -643,7 +735,11 @@ export function useTraderContracts() {
         mapCorrelationResponse,
       ),
 
-    fetchAuditLog: (offset: number, limit: number, actor?: string, type?: string) =>
+    fetchAuditLog: (
+      offset: number,
+      limit: number,
+      filters: AuditLogFilters = {},
+    ) =>
       request(
         API_ENDPOINTS.auditLog,
         {
@@ -651,8 +747,11 @@ export function useTraderContracts() {
           query: {
             offset,
             limit,
-            actor: actor || undefined,
-            type: type || undefined,
+            actor: filters.actor || undefined,
+            type: filters.type || undefined,
+            severity: filters.severity || undefined,
+            from: filters.from || undefined,
+            to: filters.to || undefined,
           },
         },
         (payload) =>
@@ -661,6 +760,9 @@ export function useTraderContracts() {
   } satisfies {
     fetchStatus: () => Promise<StatusSnapshot>;
     fetchWatchlist: () => Promise<WatchlistAsset[]>;
+    rebuildWatchlist: () => Promise<WatchlistRebuildResponse>;
+    addWatchlistAsset: (symbol: string) => Promise<WatchlistAsset>;
+    removeWatchlistAsset: (symbol: string) => Promise<{ ok: true }>;
     fetchSignals: () => Promise<SignalView[]>;
     fetchSignalDetail: (symbol: string) => Promise<SignalView>;
     fetchPositions: () => Promise<Position[]>;
@@ -679,8 +781,7 @@ export function useTraderContracts() {
     fetchAuditLog: (
       offset: number,
       limit: number,
-      actor?: string,
-      type?: string,
+      filters?: AuditLogFilters,
     ) => Promise<AuditLogResponse>;
   };
 }

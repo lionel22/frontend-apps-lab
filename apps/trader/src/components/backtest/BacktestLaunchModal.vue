@@ -1,15 +1,28 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue';
-import type { BacktestLaunchPayload } from '~/types/trader';
+import { computed, reactive, ref, watch } from 'vue';
+import type {
+  BacktestLaunchPayload,
+  BacktestTimeframe,
+} from '~/types/trader';
 import { validateBacktestLaunch } from '~/utils/validators';
+import {
+  DEFAULT_BACKTEST_PROFILE_NAME,
+  BACKTEST_TIMEFRAME_OPTIONS,
+} from '~/utils/domain';
+import {
+  toUtcEndOfDayIso,
+  toUtcStartOfDayIso,
+} from '~/utils/date-boundaries';
 
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
     loading?: boolean;
+    symbolOptions?: string[];
   }>(),
   {
     loading: false,
+    symbolOptions: () => [],
   },
 );
 
@@ -19,15 +32,22 @@ const emit = defineEmits<{
 }>();
 
 const form = reactive({
-  symbolsCsv: 'BTCUSDT,ETHUSDT',
+  symbols: ['BTC/USDT', 'ETH/USDT'],
   days: 90,
-  timeframe: '4h' as '4h' | '1d',
-  profileName: 'spot-swing-default',
+  timeframe: '4h' as BacktestTimeframe,
+  profileName: DEFAULT_BACKTEST_PROFILE_NAME,
   startDate: '',
   endDate: '',
 });
 
 const localError = ref('');
+const hasExplicitDateRange = computed(() =>
+  Boolean(form.startDate || form.endDate),
+);
+const mergedSymbolOptions = computed(() => {
+  const symbols = [...props.symbolOptions, ...form.symbols];
+  return Array.from(new Set(symbols.filter(Boolean)));
+});
 
 watch(
   () => props.modelValue,
@@ -44,15 +64,14 @@ function close() {
 
 function submit() {
   const payload: BacktestLaunchPayload = {
-    symbols: form.symbolsCsv
-      .split(',')
+    symbols: form.symbols
       .map((item) => item.trim().toUpperCase())
       .filter(Boolean),
-    days: form.days,
+    days: hasExplicitDateRange.value ? undefined : form.days,
     timeframe: form.timeframe,
     profileName: form.profileName || undefined,
-    startDate: form.startDate || undefined,
-    endDate: form.endDate || undefined,
+    startDate: form.startDate ? toUtcStartOfDayIso(form.startDate) : undefined,
+    endDate: form.endDate ? toUtcEndOfDayIso(form.endDate) : undefined,
     marketScope: 'spot',
   };
 
@@ -73,9 +92,16 @@ function submit() {
       <v-card-text>
         <v-row>
           <v-col cols="12">
-            <v-text-field
-              v-model="form.symbolsCsv"
-              label="Symbols (comma-separated)"
+            <v-combobox
+              v-model="form.symbols"
+              :items="mergedSymbolOptions"
+              label="Symbols"
+              chips
+              closable-chips
+              multiple
+              clearable
+              hint="Select from the watchlist or type custom spot symbols like BTC/USDT."
+              persistent-hint
               variant="outlined"
             />
           </v-col>
@@ -85,14 +111,19 @@ function submit() {
               label="Days"
               type="number"
               min="1"
+              :disabled="hasExplicitDateRange"
+              hint="Used only when no explicit date range is set."
+              persistent-hint
               variant="outlined"
             />
           </v-col>
           <v-col cols="12" md="4">
             <v-select
               v-model="form.timeframe"
-              :items="['4h', '1d']"
+              :items="BACKTEST_TIMEFRAME_OPTIONS"
               label="Timeframe"
+              item-title="title"
+              item-value="value"
               variant="outlined"
             />
           </v-col>
@@ -100,22 +131,30 @@ function submit() {
             <v-text-field
               v-model="form.profileName"
               label="Profile"
+              hint="Defaults to the backend spot profile name if left unchanged."
+              persistent-hint
               variant="outlined"
             />
           </v-col>
           <v-col cols="12" md="6">
             <v-text-field
               v-model="form.startDate"
-              label="Start Date (ISO)"
-              placeholder="2026-01-01T00:00:00Z"
+              label="Start Date"
+              type="date"
+              clearable
+              hint="Converted to the start of day in UTC when submitted."
+              persistent-hint
               variant="outlined"
             />
           </v-col>
           <v-col cols="12" md="6">
             <v-text-field
               v-model="form.endDate"
-              label="End Date (ISO)"
-              placeholder="2026-03-31T00:00:00Z"
+              label="End Date"
+              type="date"
+              clearable
+              hint="Converted to the end of day in UTC when submitted."
+              persistent-hint
               variant="outlined"
             />
           </v-col>

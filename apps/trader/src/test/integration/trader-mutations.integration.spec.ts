@@ -180,6 +180,150 @@ describe('trader integration mutation flows', () => {
     expect(messages).toContain('Trading resumed successfully.');
   });
 
+  it('rebuilds and edits the watchlist through mutation actions', async () => {
+    const store = useTraderStore();
+    const cache = useCacheStore();
+    const ui = useUiStore();
+
+    const currentWatchlist: Array<Record<string, unknown>> = [
+      {
+        id: 'asset-btc',
+        symbol: 'BTC/USDT',
+        marketScope: 'spot',
+        rankScore: 0.95,
+        sectorBucket: 'L1',
+        liquidityTier: 'tier-1',
+        filterResults: {},
+        scoringMetadata: {},
+        updatedAt: '2026-05-17T12:00:00.000Z',
+        createdAt: '2026-05-17T10:00:00.000Z',
+      },
+    ];
+
+    const receivedRequests: Array<{ path: string; body: unknown }> = [];
+
+    vi.stubGlobal(
+      'fetch',
+      createRouteAwareFetchMock((request) => {
+        if (request.path === '/api/v1/watchlist/rebuild' && request.method === 'POST') {
+          receivedRequests.push({ path: request.path, body: request.body });
+          currentWatchlist.splice(0, currentWatchlist.length, ...[
+            {
+              id: 'asset-btc',
+              symbol: 'BTC/USDT',
+              marketScope: 'spot',
+              rankScore: 0.95,
+              sectorBucket: 'L1',
+              liquidityTier: 'tier-1',
+              filterResults: {},
+              scoringMetadata: {},
+              updatedAt: '2026-05-17T12:00:00.000Z',
+              createdAt: '2026-05-17T10:00:00.000Z',
+            },
+            {
+              id: 'asset-eth',
+              symbol: 'ETH/USDT',
+              marketScope: 'spot',
+              rankScore: 0.88,
+              sectorBucket: 'L1',
+              liquidityTier: 'tier-1',
+              filterResults: {},
+              scoringMetadata: {},
+              updatedAt: '2026-05-17T12:00:00.000Z',
+              createdAt: '2026-05-17T10:00:00.000Z',
+            },
+          ]);
+          return { body: { ok: true, selectedCount: 2 } };
+        }
+
+        if (request.path === '/api/v1/watchlist/assets' && request.method === 'POST') {
+          receivedRequests.push({ path: request.path, body: request.body });
+          currentWatchlist.push({
+            id: 'asset-sol',
+            symbol: 'SOL/USDT',
+            marketScope: 'spot',
+            rankScore: 0,
+            sectorBucket: null,
+            liquidityTier: 'unknown',
+            filterResults: { manualSelectionMode: 'manual_include' },
+            scoringMetadata: {},
+            updatedAt: '2026-05-17T12:00:00.000Z',
+            createdAt: '2026-05-17T10:00:00.000Z',
+          });
+          return { body: currentWatchlist[currentWatchlist.length - 1] };
+        }
+
+        if (
+          request.path === '/api/v1/watchlist/assets/remove' &&
+          request.method === 'POST'
+        ) {
+          receivedRequests.push({ path: request.path, body: request.body });
+          const row = request.body as { symbol: string };
+          const next = currentWatchlist.filter((asset) => asset.symbol !== row.symbol);
+          currentWatchlist.splice(0, currentWatchlist.length, ...next);
+          return { body: { ok: true } };
+        }
+
+        if (request.path === '/api/v1/watchlist' && request.method === 'GET') {
+          return { body: currentWatchlist };
+        }
+
+        if (request.path === '/api/v1/status' && request.method === 'GET') {
+          return {
+            body: {
+              ...fixtures.status,
+              watchlistSize: currentWatchlist.length,
+            },
+          };
+        }
+
+        return {
+          status: 404,
+          body: { message: `No test route for ${request.method} ${request.path}` },
+        };
+      }),
+    );
+
+    await expect(store.rebuildWatchlist()).resolves.toEqual({
+      ok: true,
+      selectedCount: 2,
+    });
+    await expect(store.addWatchlistAsset('SOL/USDT')).resolves.toMatchObject({
+      symbol: 'SOL/USDT',
+      selectionSource: 'manual',
+    });
+    await expect(store.removeWatchlistAsset('BTC/USDT')).resolves.toEqual({
+      ok: true,
+    });
+
+    expect(receivedRequests).toEqual([
+      { path: '/api/v1/watchlist/rebuild', body: undefined },
+      {
+        path: '/api/v1/watchlist/assets',
+        body: { symbol: 'SOL/USDT' },
+      },
+      {
+        path: '/api/v1/watchlist/assets/remove',
+        body: { symbol: 'BTC/USDT' },
+      },
+    ]);
+    expect(store.watchlist.map((asset) => asset.symbol)).toEqual([
+      'ETH/USDT',
+      'SOL/USDT',
+    ]);
+    expect(store.watchlist.find((asset) => asset.symbol === 'SOL/USDT')?.selectionSource).toBe(
+      'manual',
+    );
+    expect(store.status?.watchlistSize).toBe(2);
+    expect(cache.resources.watchlist.lastFetchTime).not.toBeNull();
+    expect(cache.resources.status.lastFetchTime).not.toBeNull();
+
+    const messages = ui.alerts.map((entry) => entry.message);
+    expect(messages).toContain('Watchlist rebuilt successfully (2 assets).');
+    expect(messages).toContain('SOL/USDT added to the watchlist.');
+    expect(messages).toContain('BTC/USDT removed from the watchlist.');
+  });
+
   it('updates config and exposes entry through audit-log fetch', async () => {
     const store = useTraderStore();
     const cache = useCacheStore();
@@ -270,8 +414,10 @@ describe('trader integration mutation flows', () => {
     const audit = await store.fetchAuditLog(
       0,
       50,
-      updatePayload.actor,
-      'config.weight_profile.updated',
+      {
+        actor: updatePayload.actor,
+        type: 'config.weight_profile.updated',
+      },
       true,
     );
 

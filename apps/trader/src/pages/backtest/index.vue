@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type { BacktestLaunchPayload } from '~/types/trader';
 import { useTraderStore } from '~/stores/trader';
 import { usePolling } from '~/composables/usePolling';
@@ -7,6 +7,7 @@ import { usePolling } from '~/composables/usePolling';
 const trader = useTraderStore();
 const launchOpen = ref(false);
 const launching = ref(false);
+const symbolOptions = computed(() => trader.watchlist.map((asset) => asset.symbol));
 
 async function refresh(force = false) {
   await trader.fetchBacktestList(
@@ -42,6 +43,11 @@ async function onPageChange(offset: number, limit: number) {
   await trader.fetchBacktestList(offset, limit, true);
 }
 
+async function openLaunchModal() {
+  await trader.fetchWatchlist();
+  launchOpen.value = true;
+}
+
 function openDetail(runId: string) {
   void navigateTo(`/backtest/results-${runId}`);
 }
@@ -54,7 +60,7 @@ function openDetail(runId: string) {
     <BacktestList
       :paged-backtests="trader.backtests"
       :loading="trader.loading.backtests"
-      @launch="launchOpen = true"
+      @launch="openLaunchModal"
       @open="openDetail"
       @page-change="onPageChange"
     />
@@ -62,6 +68,7 @@ function openDetail(runId: string) {
     <BacktestLaunchModal
       v-model="launchOpen"
       :loading="launching"
+      :symbol-options="symbolOptions"
       @launch="onLaunch"
     />
   </div>

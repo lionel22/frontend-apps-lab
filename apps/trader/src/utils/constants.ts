@@ -1,6 +1,9 @@
 export const API_ENDPOINTS = {
   status: '/api/v1/status',
   watchlist: '/api/v1/watchlist',
+  watchlistRebuild: '/api/v1/watchlist/rebuild',
+  watchlistAssets: '/api/v1/watchlist/assets',
+  watchlistAssetRemove: '/api/v1/watchlist/assets/remove',
   signals: '/api/v1/signals',
   signalDetail: (symbol: string): string => `/api/v1/signals/${symbol}`,
   signalCorrelation: '/api/v1/signals/correlation',

@@ -1,4 +1,12 @@
 export type TradingMode = 'backtest' | 'paper' | 'live';
+export type MarketScope = 'spot' | 'isolated_margin' | 'legacy_futures';
+export type SpotMarketScope = 'spot';
+export type SignalTimeframe = '1h' | '4h' | '1d';
+export type BacktestTimeframe = '4h' | '1d';
+export type BacktestRunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+export type AuditSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+export type PositionSide = 'LONG' | 'SHORT';
+export type TradeSide = 'LONG' | 'SHORT';
 
 export interface PagedResponse<T> {
   items: T[];
@@ -8,7 +16,7 @@ export interface PagedResponse<T> {
 }
 
 export interface StatusSnapshot {
-  marketScope: 'spot';
+  marketScope: MarketScope;
   tradingMode: TradingMode;
   capabilities: {
     hasValidBacktests: boolean;
@@ -24,19 +32,25 @@ export interface StatusSnapshot {
 export interface WatchlistAsset {
   id: string;
   symbol: string;
-  marketScope: string;
+  marketScope: MarketScope;
   rankScore: number;
   sectorBucket: string | null;
   liquidityTier: string;
+  selectionSource: 'auto' | 'manual';
   filterResults: Record<string, unknown>;
   scoringMetadata: Record<string, unknown>;
   updatedAt: string;
   createdAt: string;
 }
 
+export interface WatchlistRebuildResponse {
+  ok: true;
+  selectedCount: number;
+}
+
 export interface SignalView {
   symbol: string;
-  timeframe: string;
+  timeframe: SignalTimeframe;
   compositeScore: number;
   confidence: number;
   contributions: Record<string, number>;
@@ -48,7 +62,7 @@ export interface SignalView {
 export interface Position {
   id: string;
   symbol: string;
-  side: string;
+  side: PositionSide;
   quantity: number;
   entryPrice: number;
   markPrice: number;
@@ -66,8 +80,8 @@ export interface Trade {
   orderExecutionId: string;
   positionId: string | null;
   symbol: string;
-  marketScope: string;
-  side: string;
+  marketScope: MarketScope;
+  side: TradeSide;
   entryPrice: number;
   exitPrice: number;
   quantity: number;
@@ -83,16 +97,16 @@ export interface Trade {
 
 export interface BacktestRunSummary {
   id: string;
-  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-  marketScope: string;
+  status: BacktestRunStatus;
+  marketScope: MarketScope;
   params: {
     symbols: string[];
     days?: number;
-    timeframe?: '4h' | '1d' | string;
+    timeframe?: BacktestTimeframe;
     profileName?: string;
     startDate?: string | null;
     endDate?: string | null;
-    marketScope?: 'spot' | string;
+    marketScope?: MarketScope;
   };
   metrics: Record<string, number>;
   startedAt: string | null;
@@ -107,7 +121,7 @@ export interface BacktestEquityPoint {
 
 export interface BacktestTradeLog {
   symbol: string;
-  side: string;
+  side: TradeSide;
   entryPrice: number;
   exitPrice: number;
   quantity: number;
@@ -126,16 +140,16 @@ export interface BacktestRunDetail extends BacktestRunSummary {
 export interface BacktestLaunchPayload {
   symbols: string[];
   days?: number;
-  timeframe?: '4h' | '1d';
+  timeframe?: BacktestTimeframe;
   startDate?: string;
   endDate?: string;
-  marketScope?: 'spot';
+  marketScope?: SpotMarketScope;
   profileName?: string;
 }
 
 export interface WeightProfile {
   id: string;
-  marketScope: string;
+  marketScope: MarketScope;
   version: number;
   isActive: boolean;
   weights: Record<string, number>;
@@ -159,7 +173,7 @@ export interface ControlActionPayload {
 export interface AuditLogEntry {
   id: string;
   type: string;
-  severity: string;
+  severity: AuditSeverity;
   message: string;
   actor: string | null;
   reason: string | null;
@@ -167,6 +181,14 @@ export interface AuditLogEntry {
 }
 
 export type AuditLogResponse = PagedResponse<AuditLogEntry>;
+
+export interface AuditLogFilters {
+  actor?: string;
+  type?: string;
+  severity?: AuditSeverity;
+  from?: string;
+  to?: string;
+}
 
 export interface SignalCorrelationSummaryItem {
   signal: string;
