@@ -8,13 +8,16 @@
 
 The Trader Frontend is a Nuxt 3 + Vue 3 SPA that provides real-time operator dashboards, trading controls, backtest management, and signal analytics for the Breexio trader platform backend.
 
+Release 001 includes `P1 + P2 + P3` in one release. The frontend is therefore designed around the current trader backend contracts plus three additive contracts that must be closed before release exit: backtest history, signal correlation, and audit-log read access.
+
 ### Design Principles
 
-1. **API-first**: All backend integration wrapped behind a typed `useTraderApi` composable. UI is independent of backend changes.
+1. **API-first**: All backend integration is wrapped behind a typed adapter layer and `useTraderApi` composable so route, DTO, and numeric-normalization changes stay out of components.
 2. **Real-time polling**: Configurable polling intervals (5s for positions, 10s for trades, 30s for dashboard) to keep operator state fresh.
 3. **Graceful degradation**: Partial API failures don't crash the UI; components show warnings instead.
-4. **Audit-first**: All mutations (kill-switch, config changes) logged to a backend audit trail.
-5. **Responsive but not mobile**: Desktop-first operator workstation (laptop/monitor), no mobile support in P1.
+4. **Guard-aware UX**: All protected flows treat `401`, `403`, `422`, and `429` as first-class outcomes because backend trader routes are guarded by `CombinedAuth` and rate limiting.
+5. **Audit-first**: All mutations (kill-switch, config changes) flow toward an explicit backend audit trail projection.
+6. **Responsive but not mobile**: Desktop-first operator workstation (laptop/monitor), no mobile support in Release 001.
 
 ---
 
@@ -23,7 +26,8 @@ The Trader Frontend is a Nuxt 3 + Vue 3 SPA that provides real-time operator das
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      Pages (Nuxt Routes)                     │
-│  /index  /watchlist  /backtest  /positions  /trades  /signals│
+│  /index  /watchlist  /backtest  /positions  /trades          │
+│  /signals  /correlation  /config  /audit-log                 │
 └────────────────────────────────────────────────────────────▲─┘
                                                               │
 ┌─────────────────────────────────────────────────────────────┴─┐
@@ -53,8 +57,9 @@ The Trader Frontend is a Nuxt 3 + Vue 3 SPA that provides real-time operator das
                                                               │
 ┌─────────────────────────────────────────────────────────────┴─────┐
 │                  Backend NestJS APIs                             │
-│  /dashboard  /watchlist  /backtest  /positions  /trades  /signals│
-│  /config  /auth  /audit-log                                      │
+│  /api/v1/status  /api/v1/watchlist  /api/v1/signals              │
+│  /api/v1/positions  /api/v1/trades  /api/v1/backtest             │
+│  /api/v1/config  /api/v1/control  /api/v1/audit-log (planned)    │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -67,11 +72,11 @@ The Trader Frontend is a Nuxt 3 + Vue 3 SPA that provides real-time operator das
 ```
 Dashboard Page (pages/index.vue)
 ├── StatusCards (display: trading mode, kill-switch, watchlist count)
-│   └── useTraderApi → GET /dashboard/status
+│   └── useTraderApi → GET /api/v1/status
 ├── SignalHeatmap (display: signal grid, real-time)
-│   └── usePolling → GET /signals (every 30s)
+│   └── usePolling → GET /api/v1/signals (every 30s)
 └── WatchlistSummary (display: asset count by sector)
-    └── useTraderApi → GET /watchlist
+  └── useTraderApi → GET /api/v1/watchlist
 ```
 
 ### Positions Flow
@@ -79,11 +84,11 @@ Dashboard Page (pages/index.vue)
 ```
 Positions Page (pages/positions.vue)
 ├── PositionsTable (display: real-time P&L, updated every 5s)
-│   ├── usePolling → GET /positions (every 5s)
+│   ├── usePolling → GET /api/v1/positions (every 5s)
 │   └── emit: kill-switch button
 ├── KillSwitchButton
 │   ├── confirm dialog
-│   └── useTraderApi → POST /trading/kill-switch (kill-switch mutation)
+│   └── useTraderApi → POST /api/v1/control/kill-switch (kill-switch mutation)
 └── RiskIndicator (display: total portfolio risk %)
     └── computed from PositionsTable data
 ```
@@ -93,18 +98,44 @@ Positions Page (pages/positions.vue)
 ```
 Backtest Index Page (pages/backtest/index.vue)
 ├── BacktestList (display: history)
-│   └── usePolling → GET /backtest/list (every 30s)
+│   └── usePolling → GET /api/v1/backtest (planned Release 001 contract)
 ├── BacktestLaunchModal (input: parameters)
-│   └── useTraderApi → POST /backtest/launch (launch mutation)
+│   └── useTraderApi → POST /api/v1/backtest/launch (launch mutation)
 └── Router: click row → /backtest/results-[id]
 
 Backtest Results Page (pages/backtest/results-[id].vue)
 ├── ResultsChart (display: equity curve)
-│   └── useTraderApi → GET /backtest/[id]
+│   └── useTraderApi → GET /api/v1/backtest/:runId
 ├── TradesTable (display: paginated closed trades)
 │   └── computed from backtest results
 └── MetricsPanel (display: Sharpe, MaxDD, ProfitFactor, Calmar)
     └── computed from backtest results
+
+### Configuration And Audit Flow
+
+```
+Config Page (pages/config.vue)
+├── ConfigForm (display: weights, thresholds, actor, reason)
+│   ├── useTraderApi → GET /api/v1/config
+│   └── useTraderApi → PUT /api/v1/config/weights
+├── DiffViewer (display: before/after changes)
+└── AuditLog link
+  └── Route to /audit-log
+
+Audit Log Page (pages/audit-log.vue)
+└── AuditLogTable
+  └── useTraderApi → GET /api/v1/audit-log (planned Release 001 contract)
+```
+
+### Correlation Flow
+
+```
+Correlation Page (pages/correlation.vue)
+├── CorrelationMatrix
+├── SignalTrendChart
+└── SignalDetail
+  └── useTraderApi → GET /api/v1/signals/correlation (planned Release 001 contract)
+```
 ```
 
 ---
@@ -115,14 +146,16 @@ Backtest Results Page (pages/backtest/results-[id].vue)
 
 ```typescript
 state() {
-  watchlist: WatchlistAsset[]      // from GET /watchlist
-  positions: Position[]            // from GET /positions (real-time, 5s)
-  trades: Trade[]                  // from GET /trades (paginated)
-  signals: SignalData[]            // from GET /signals (real-time, 30s)
-  config: Config                   // from GET /config (static until mutation)
-  status: StatusSnapshot           // from GET /dashboard/status
-  backtest: Backtest[]             // from GET /backtest/list (30s)
-  backtestResult: BacktestResult   // from GET /backtest/[id]
+  watchlist: WatchlistAsset[]      // from GET /api/v1/watchlist
+  positions: Position[]            // from GET /api/v1/positions (real-time, 5s)
+  trades: Trade[]                  // from GET /api/v1/trades (offset/limit, target envelope)
+  signals: SignalData[]            // from GET /api/v1/signals (real-time, 30s)
+  config: WeightProfile | null     // from GET /api/v1/config
+  status: StatusSnapshot           // from GET /api/v1/status
+  backtestList: BacktestRunSummary[]  // from GET /api/v1/backtest (planned)
+  backtestResult: BacktestRunDetail | null   // from GET /api/v1/backtest/:runId
+  correlation: SignalCorrelationReport | null // from GET /api/v1/signals/correlation (planned)
+  auditLog: AuditEntry[]           // from GET /api/v1/audit-log (planned)
 }
 
 getters:
@@ -131,17 +164,20 @@ getters:
   signalStrength(symbol)           // composite signal score for symbol
 
 actions:
-  async fetchWatchlist()           // GET /watchlist, update state
-  async fetchPositions()           // GET /positions, update state
-  async fetchTrades()              // GET /trades, update state
-  async fetchSignals()             // GET /signals, update state
-  async fetchConfig()              // GET /config, update state
-  async fetchStatus()              // GET /dashboard/status, update state
-  async fetchBacktestList()        // GET /backtest/list, update state
-  async fetchBacktestResult(id)    // GET /backtest/[id], update state
-  async launchBacktest(params)     // POST /backtest/launch, trigger refetch
-  async executeKillSwitch()        // POST /trading/kill-switch, invalidate cache
-  async updateConfig(newConfig)    // POST /config, update state + audit log
+  async fetchWatchlist()           // GET /api/v1/watchlist, update state
+  async fetchPositions()           // GET /api/v1/positions, update state
+  async fetchTrades()              // GET /api/v1/trades, update state
+  async fetchSignals()             // GET /api/v1/signals, update state
+  async fetchConfig()              // GET /api/v1/config, update state
+  async fetchStatus()              // GET /api/v1/status, update state
+  async fetchBacktestList()        // GET /api/v1/backtest (planned), update state
+  async fetchBacktestResult(id)    // GET /api/v1/backtest/:runId, update state
+  async fetchCorrelation()         // GET /api/v1/signals/correlation (planned)
+  async fetchAuditLog()            // GET /api/v1/audit-log (planned)
+  async launchBacktest(params)     // POST /api/v1/backtest/launch, trigger refetch
+  async executeKillSwitch()        // POST /api/v1/control/kill-switch, invalidate cache
+  async resumeTrading()            // POST /api/v1/control/resume, invalidate cache
+  async updateConfig(newConfig)    // PUT /api/v1/config/weights, update state + audit log
 ```
 
 ### `ui.ts` store
@@ -204,14 +240,22 @@ interface ApiResponse<T> {
 
 // Example usage:
 const { data: positions, error, loading, refetch } = useTraderApi(
-  '/positions',
+  '/api/v1/positions',
   { method: 'GET' }
 )
 
 // On 401:
-// 1. Attempt silent token refresh
-// 2. If successful, retry request
-// 3. If refresh fails, redirect to /login with return-to URL
+// 1. Mark the protected session as expired or missing
+// 2. Hand off to the environment-specific auth bootstrap flow
+// 3. Do not assume dedicated /auth/login or /auth/refresh routes exist in the trader backend
+
+// On 422:
+// 1. Return structured validation details to forms
+// 2. Preserve field-level errors for config and control actions
+
+// On 429:
+// 1. Surface a rate-limited state
+// 2. Let polling/backoff logic slow down protected refreshes
 
 // On 5xx or network error:
 // 1. Dispatch error alert to ui store
@@ -245,8 +289,8 @@ const { data, error, loading, pause, resume } = usePolling(
 const { invalidate, isStale } = useCacheInvalidation()
 
 // After kill-switch mutation:
-await useTraderApi('/trading/kill-switch', { method: 'POST' })
-invalidate('status')        // force refetch on next GET /dashboard/status
+await useTraderApi('/api/v1/control/kill-switch', { method: 'POST' })
+invalidate('status')        // force refetch on next GET /api/v1/status
 invalidate('positions')     // force refetch positions
 ```
 
@@ -286,32 +330,44 @@ const { currentPage, pageItems, totalPages, next, prev } = usePagination(
 
 | Feature | Method | Endpoint | Response |
 |---------|--------|----------|----------|
-| Dashboard Status | GET | `/dashboard/status` | `{ tradingMode, killSwitchState, watchlistCount }` |
-| Watchlist | GET | `/watchlist` | `{ assets: Asset[] }` |
-| Positions | GET | `/positions` | `{ positions: Position[] }` |
-| Trades | GET | `/trades?skip=0&limit=50` | `{ trades: Trade[], total: number }` |
-| Signals | GET | `/signals` | `{ signals: SignalData[] }` |
-| Config | GET | `/config` | `{ weights: {}, thresholds: {} }` |
-| Backtest List | GET | `/backtest/list` | `{ backtests: Backtest[] }` |
-| Backtest Results | GET | `/backtest/[id]` | `{ result: BacktestResult }` |
-| Launch Backtest | POST | `/backtest/launch` | `{ backtestId, status, startTime }` |
-| Kill-Switch | POST | `/trading/kill-switch` | `{ state, timestamp }` |
-| Update Config | POST | `/config` | `{ config: Config, auditId }` |
-| Audit Log | GET | `/audit-log?skip=0&limit=100` | `{ entries: AuditEntry[], total }` |
-| Auth (JWT) | POST | `/auth/login` | `{ token, expiresIn }` |
-| Token Refresh | POST | `/auth/refresh` | `{ token, expiresIn }` |
+| Dashboard Status | GET | `/api/v1/status` | `SpotStatusDto` |
+| Watchlist | GET | `/api/v1/watchlist` | `WatchlistAsset[]` |
+| Signals | GET | `/api/v1/signals` | `SignalView[]` |
+| Signal Detail | GET | `/api/v1/signals/:symbol` | `SignalView` |
+| Positions | GET | `/api/v1/positions` | `Position[]` |
+| Trades | GET | `/api/v1/trades?offset=0&limit=50` | `Trade[]` currently, target Release 001 contract is `{ items, total, offset, limit }` |
+| Config | GET | `/api/v1/config` | `WeightProfile | null` |
+| Update Config | PUT | `/api/v1/config/weights` | `WeightProfile` |
+| Backtest List | GET | `/api/v1/backtest` | planned `BacktestRunListResponse` |
+| Backtest Results | GET | `/api/v1/backtest/:runId` | `BacktestRun | null` |
+| Launch Backtest | POST | `/api/v1/backtest/launch` | `{ runId: string }` |
+| Kill-Switch | POST | `/api/v1/control/kill-switch` | `{ ok: true }` |
+| Resume | POST | `/api/v1/control/resume` | `{ ok: true }` |
+| Correlation | GET | `/api/v1/signals/correlation` | planned `SignalCorrelationResponse` |
+| Audit Log | GET | `/api/v1/audit-log?offset=0&limit=100` | planned `AuditLogResponse` |
+
+Auth note:
+
+- The current trader backend does not expose dedicated `/api/v1/auth/login` or `/api/v1/auth/refresh` routes.
+- Release 001 therefore treats auth/session bootstrap as an environment-specific concern behind a frontend session abstraction.
 
 ### Error Handling Strategy
 
 ```
 API Error
 ├── 401 Unauthorized
-│   ├── Attempt POST /auth/refresh
-│   ├── If success → retry original request
-│   └── If fail → redirect to /login?returnTo=[current-path]
+│   ├── Mark session invalid or expired
+│   ├── Redirect to the configured auth entrypoint or protected-session handoff
+│   └── Preserve current route for return navigation when the environment supports it
 │
 ├── 403 Forbidden
 │   └── Dispatch alert: "Permission denied"; hide action button
+│
+├── 422 Unprocessable Entity
+│   └── Map validation errors to inline form fields; keep the current form state intact
+│
+├── 429 Too Many Requests
+│   └── Dispatch rate-limit warning; apply adaptive polling backoff; avoid repeated action retries
 │
 ├── 4xx (other)
 │   └── Dispatch alert: "Invalid request: [error message]"; log to console
@@ -331,13 +387,12 @@ API Error
 
 | View | Resource | Interval | Rationale |
 |------|----------|----------|-----------|
-| Dashboard | `/dashboard/status` | 30s | Status changes less frequently |
-| Dashboard | `/signals` | 30s | Signals are batch-computed |
-| Watchlist | `/watchlist` | 30s | Watchlist composition changes rarely |
-| Watchlist | Asset prices | 10s | Price updates relevant for monitoring |
-| Positions | `/positions` | 5s | Real-time P&L crucial for operators |
-| Trades | `/trades` | 10s | Trade fills happen less frequently than P&L swings |
-| Backtest List | `/backtest/list` | 30s | Backtest completion not time-critical in P1 |
+| Dashboard | `/api/v1/status` | 30s | Capability and kill-switch state changes less frequently |
+| Dashboard | `/api/v1/signals` | 30s | Signals are aggregated server-side |
+| Watchlist | `/api/v1/watchlist` | 30s | Watchlist eligibility and ranking change less frequently than positions |
+| Positions | `/api/v1/positions` | 5s | Real-time P&L and open risk are operator-critical |
+| Trades | `/api/v1/trades` | 10s | Closed-trade history changes less frequently than positions |
+| Backtest List | `/api/v1/backtest` | 30s | Planned history endpoint; status changes while runs complete |
 | Backtest Results | `/backtest/[id]` | static | Results don't change after backtest completes |
 
 ### Polling Adaptive Backoff
@@ -369,9 +424,10 @@ If backend returns `429 Too Many Requests`:
 ```
 After Mutation                    Invalidate Resources
 ────────────────────────────────────────────────────
-POST /backtest/launch            → /backtest/list
-POST /trading/kill-switch        → /dashboard/status
-POST /config                     → /config, /signals (correlation depends on config)
+POST /api/v1/backtest/launch     → /api/v1/backtest, /api/v1/backtest/:runId
+POST /api/v1/control/kill-switch → /api/v1/status, /api/v1/positions
+POST /api/v1/control/resume      → /api/v1/status, /api/v1/positions
+PUT /api/v1/config/weights       → /api/v1/config, /api/v1/signals/correlation, /api/v1/audit-log
 ```
 
 ### Cache Lifetime
@@ -389,15 +445,15 @@ POST /config                     → /config, /signals (correlation depends on c
 
 ### Authentication
 
-- JWT token stored in `localStorage`
-- Token includes `expiresIn` (e.g., 24 hours)
-- On 401, attempt silent refresh via POST `/auth/refresh`
-- If refresh fails, clear token and redirect to login
+- Release 001 does not assume dedicated auth routes in the trader backend
+- Protected trader APIs are guarded by `CombinedAuth` + rate limiting
+- Frontend auth bootstrap must live behind `useSession` or equivalent abstraction so the app can work with reverse-proxy auth, pre-seeded bearer tokens, or a future dedicated auth API
+- No frontend secret or long-lived credential should be shipped via public environment variables
 
 ### Authorization
 
-- No RBAC in P1 (all operators have same permissions)
-- P2+: Add `usePermissions` composable to check operator role before rendering sensitive actions (e.g., kill-switch)
+- No fine-grained RBAC contract is exposed yet for Release 001
+- `usePermissions` may exist as a UI capability helper, but backend remains the source of truth for protected actions
 - Backend enforces authorization on every mutation endpoint
 
 ### Input Validation
@@ -430,9 +486,11 @@ POST /config                     → /config, /signals (correlation depends on c
 
 ### Integration Tests
 
-- **Dashboard → Backtest → Results**: Mock backend; verify full workflow
-- **Kill-Switch workflow**: Mock auth and mutation endpoints; verify state transitions
-- **Error recovery**: Mock 401/5xx errors; verify alert display and recovery
+- **Dashboard → Backtest launch → Run detail**: Verify current backend-supported workflow against live or mocked API
+- **Control workflows**: Verify kill-switch and resume payloads include required actor and reason values
+- **Config workflow**: Verify `PUT /api/v1/config/weights` success path, `422` inline validation mapping, and audit-log refresh
+- **Gap-closure workflows**: Switch correlation, audit-log, and backtest-history screens from mocks to real endpoints once backend contracts land
+- **Error recovery**: Mock 401/403/422/429/5xx responses and verify alert, retry, and stale-state behavior
 
 ---
 
@@ -449,20 +507,22 @@ frontend-apps-lab/apps/trader/src/
 ├── pages/
 │   ├── index.vue (dashboard)
 │   ├── watchlist.vue
-│   ├── status.vue
 │   ├── backtest/
 │   │   ├── index.vue
 │   │   └── results-[id].vue
 │   ├── positions.vue
 │   ├── trades.vue
 │   ├── signals.vue
-│   ├── correlation.vue (P3)
-│   ├── config.vue (P3)
+│   ├── correlation.vue
+│   ├── config.vue
+│   ├── audit-log.vue
 │   └── 404.vue
 ├── components/
 │   ├── shared/
 │   │   ├── ApiErrorAlert.vue
+│   │   ├── ConfirmDialog.vue
 │   │   ├── LoadingSpinner.vue
+│   │   ├── Toast.vue
 │   │   └── DataTable.vue
 │   ├── dashboard/
 │   │   ├── StatusCards.vue
@@ -486,15 +546,20 @@ frontend-apps-lab/apps/trader/src/
 │   │   └── TradeMetricsCard.vue
 │   ├── signals/
 │   │   ├── SignalContributionChart.vue
-│   │   └── SignalStalenessIndicator.vue
+│   │   ├── SignalStalenessIndicator.vue
+│   │   ├── CorrelationMatrix.vue
+│   │   ├── SignalTrendChart.vue
+│   │   └── SignalDetail.vue
 │   └── config/
 │       ├── ConfigForm.vue
+│       ├── DiffViewer.vue
 │       └── AuditLog.vue
 ├── composables/
 │   ├── useTraderApi.ts
 │   ├── usePolling.ts
 │   ├── useCacheInvalidation.ts
 │   ├── usePermissions.ts
+│   ├── useSession.ts
 │   ├── usePagination.ts
 │   ├── useLocalStorage.ts
 │   └── useVisibilityChange.ts
@@ -534,7 +599,6 @@ frontend-apps-lab/apps/trader/src/
 
 ```env
 NUXT_PUBLIC_API_URL=https://api.trader.example.com  # Backend API base URL
-NUXT_PUBLIC_AUTH_TOKEN_EXPIRY=86400                 # Token lifetime in seconds
 NUXT_PUBLIC_POLLING_INTERVAL_POSITIONS=5000         # ms
 NUXT_PUBLIC_POLLING_INTERVAL_TRADES=10000           # ms
 NUXT_PUBLIC_POLLING_INTERVAL_DEFAULT=30000          # ms
@@ -555,7 +619,7 @@ pnpm --filter @trader-frontend/trader preview
 
 ---
 
-## Future Extensions (P3+)
+## Future Extensions (Post-Release)
 
 1. **WebSocket Real-Time**: Replace polling with `/trader/ws` for live position and trade feeds
 2. **Multi-Operator RBAC**: Fine-grained permission system per operator role

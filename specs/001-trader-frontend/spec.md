@@ -7,7 +7,7 @@
 
 ## Objective
 
-Build a responsive, typed operator-facing frontend application using Nuxt 3, Vue 3, TypeScript, and Vuetify that consumes the NestJS trader backend APIs across three phases:
+Build a responsive, typed operator-facing frontend application using Nuxt 3, Vue 3, TypeScript, and Vuetify that consumes the NestJS trader backend APIs across three planned capability groups within the same target release scope. Release 001 MUST include P1, P2, and P3; these labels organize delivery priority and capability grouping, not separate release commitments:
 
 - **P1**: Dashboard and real-time status displays, watchlist visualization, backtest launch and results review
 - **P2**: Live trading controls, positions and trades views, execution and risk monitoring, operator kill-switch and resume commands
@@ -55,9 +55,9 @@ As an operator, I want a positions view, trading history, kill-switch button, an
 
 As an operator, I want to visualize signal quality over time, compare signal effectiveness against outcomes, and adjust weights and thresholds through a validated configuration form so I can improve the strategy without database access or code changes.
 
-**Why this priority**: P3 unlocks data-driven tuning and knowledge extraction from past trades. It only matters after P2 proves trading safety and generates sufficient trade history.
+**Why this priority**: P3 unlocks data-driven tuning and knowledge extraction from past trades. It is lower priority within the same release scope because it depends on the data and controls introduced in P2.
 
-**Independent Test**: After sufficient trade history, navigate the correlation dashboard, apply signal filters, and attempt to adjust a weight or threshold through the configuration form to confirm the UI enforces constraints and persists changes.
+**Independent Test**: With sufficient historical or seeded trade data, navigate the correlation dashboard, apply signal filters, and attempt to adjust a weight or threshold through the configuration form to confirm the UI enforces constraints and persists changes.
 
 **Acceptance Scenarios**:
 
@@ -158,9 +158,9 @@ frontend-apps-lab/apps/trader/src/
   - `ui`: Modal visibility, filter selections, alert queue, selected row in tables.
   - `cache`: Timestamp of last successful fetch per resource. Invalidate aggressively after mutations.
 
-### Real-time Updates (Future Extension)
+### Real-time Updates (Post-Release Extension)
 
-- WebSocket support: Optional connection to `/trader/ws` for live position and trade feeds to replace polling in P3+.
+- WebSocket support: Optional connection to `/trader/ws` for live position and trade feeds to replace polling after Release 001.
 
 ---
 
@@ -173,7 +173,7 @@ frontend-apps-lab/apps/trader/src/
 - **State**: Pinia (Vuex successor)
 - **HTTP**: Fetch API or axios (wrapped in useTraderApi composable)
 - **TypeScript**: Strict mode, no `any` types except in legacy integration points
-- **Testing**: Vitest + Vue Test Utils for unit and component tests; no E2E framework in P1
+- **Testing**: Vitest + Vue Test Utils for unit and component tests; no dedicated E2E framework required for Release 001
 
 ### Browser Support
 
@@ -213,7 +213,7 @@ frontend-apps-lab/apps/trader/src/
 - [ ] ESLint and Prettier pass with zero warnings
 - [ ] TypeScript `tsc --noEmit` passes with strict mode enabled
 - [ ] Test coverage ≥ 70% for composables and utils; ≥ 50% for components
-- [ ] No hardcoded strings; all UI labels in i18n (future: P3+)
+- [ ] No hardcoded strings; all UI labels in i18n (future release)
 
 ### Performance
 
@@ -224,16 +224,16 @@ frontend-apps-lab/apps/trader/src/
 
 ### Accessibility
 
-- [ ] WCAG 2.1 AA compliance for keyboard navigation and screen readers (future: P3+)
+- [ ] WCAG 2.1 AA compliance for keyboard navigation and screen readers (future release)
 - [ ] Color contrast ratios ≥ 4.5:1 for text
 - [ ] All interactive elements have `aria-label` or visible labels
 
 ---
 
-## Non-Goals (P1 Scope)
+## Non-Goals (Out of Scope for Release 001)
 
 - Internationalization (i18n) beyond English
-- Real-time WebSocket support (polling sufficient for P1)
+- Real-time WebSocket support (polling sufficient for Release 001)
 - Mobile-first responsive design (desktop-first for operator workstation)
 - Dark mode / theming (Vuetify default light theme)
 - Advanced charting libraries (use lightweight alternatives or SVG)
@@ -273,7 +273,7 @@ frontend-apps-lab/apps/trader/src/
 
 ### Integration Tests
 
-- **End-to-end workflow** (P1): Mock backend API, verify dashboard → backtest launch → results display flow
+- **Release 001 workflows**: Mock backend API, verify dashboard → backtest launch → results display flow, plus positions/trades supervision, kill-switch, and configuration update flows
 - **Error scenarios**: Mock 5xx errors, 401 auth failures, network timeouts; verify error alerts and graceful fallbacks
 
 ### Manual Testing Checklist
@@ -293,7 +293,7 @@ frontend-apps-lab/apps/trader/src/
 |------|--------|------------|-----------|
 | Backend API contracts unstable (fields removed/renamed) | Frontend breaks on data binding | Medium | Maintain strict API versioning; use SDK codegen if available; API contract tests in backend repo |
 | Real-time polling overloads backend | High CPU/DB usage if poll interval too aggressive | High | Start with 30s interval; add adaptive backoff if server responds with 429 (too many requests) |
-| Operator accidentally deletes config due to missing confirmation | Data loss | Low | Require confirmation dialog + audit log all mutations; add undo-within-30s feature in P3 |
+| Operator accidentally deletes config due to missing confirmation | Data loss | Low | Require confirmation dialog + audit log all mutations; consider an undo-within-30s feature in a future release |
 | Browser tab becomes stale (background for hours) | User sees outdated data on tab focus | Medium | Implement `useVisibilityChange` to refresh store on visibility change |
 | Auth token expires during user session | API calls fail silently | Medium | Implement silent token refresh in API client; if refresh fails, redirect to login with return-to-page URL |
 

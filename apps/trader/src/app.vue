@@ -1,2 +1,5 @@
-// Trader App Entry Point
-export default {}
+<template>
+	<NuxtLayout>
+		<NuxtPage />
+	</NuxtLayout>
+</template>

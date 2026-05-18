@@ -5,15 +5,24 @@
   "scripts": {
     "dev": "pnpm -r run dev",
     "build": "pnpm -r run build",
+    "trader:dev": "pnpm --filter @trader-frontend/trader dev",
+    "trader:build": "pnpm --filter @trader-frontend/trader build",
+    "trader:preview": "pnpm --filter @trader-frontend/trader preview",
+    "trader:lint": "pnpm --filter @trader-frontend/trader lint",
+    "trader:typecheck": "pnpm --filter @trader-frontend/trader typecheck",
+    "trader:test": "pnpm --filter @trader-frontend/trader test",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.vue",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "pnpm --filter @trader-frontend/trader typecheck"
   },
   "private": true,
   "devDependencies": {
-    "@nx/eslint": "^19.0.0",
-    "@nx/eslint-plugin": "^19.0.0",
+    "@oxc-minify/binding-darwin-arm64": "0.129.0",
+    "@oxc-parser/binding-darwin-arm64": "^0.129.0",
+    "@oxc-transform/binding-darwin-arm64": "^0.129.0",
+    "@typescript-eslint/parser": "^8.12.2",
     "eslint": "^9.0.0",
-    "typescript": "^5.4.0"
-  },
-  "dependencies": {}
+    "eslint-plugin-vue": "^9.30.0",
+    "typescript": "^5.4.0",
+    "vue-eslint-parser": "^9.4.3"
+  }
 }
