@@ -6,6 +6,7 @@ import { NAV_ITEMS } from '~/utils/constants';
 import { useSSE } from '~/composables/useSSE';
 import { useSession } from '~/composables/useSession';
 import { useUiStore } from '~/stores/ui';
+import { useTraderStore } from '~/stores/trader';
 
 const drawer = ref(true);
 const route = useRoute();
@@ -14,6 +15,18 @@ const session = useSession();
 const keyboard = useKeyboardShortcuts();
 const notifications = useNotifications();
 const ui = useUiStore();
+const trader = useTraderStore();
+
+const tradingModeBadge = computed(() => {
+  const mode = trader.status?.tradingMode;
+  if (!mode) return null;
+  const map: Record<string, { label: string; color: string }> = {
+    live: { label: 'LIVE', color: 'error' },
+    paper: { label: 'PAPER', color: 'warning' },
+    backtest: { label: 'BACKTEST', color: 'info' },
+  };
+  return map[mode] ?? { label: mode.toUpperCase(), color: 'secondary' };
+});
 
 const sessionBanner = computed(() => {
   if (session.expired.value) {
@@ -174,6 +187,16 @@ keyboard.useShortcut({
 
       <template #append>
         <div class="d-flex align-center ga-3">
+          <v-chip
+            v-if="tradingModeBadge"
+            :color="tradingModeBadge.color"
+            variant="tonal"
+            size="small"
+            label
+            class="font-weight-bold bx-mode-chip"
+          >
+            {{ tradingModeBadge.label }}
+          </v-chip>
           <ShellGlobalSearch />
           <ShellNotificationCenter />
           <ShellKillSwitchButton />
@@ -212,6 +235,12 @@ keyboard.useShortcut({
   font-size: 0.7rem;
   letter-spacing: 0.06em;
   color: #0a0e17;
+}
+
+.bx-mode-chip {
+  font-family: var(--bx-font-mono);
+  letter-spacing: 0.08em;
+  font-size: 0.65rem;
 }
 
 .bx-clock {

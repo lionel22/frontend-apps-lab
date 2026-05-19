@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useHoldingsStore } from '~/stores/useHoldingsStore';
 import { usePolling } from '~/composables/usePolling';
 
@@ -25,6 +25,25 @@ onMounted(async () => {
 usePolling(async () => {
   await refresh(true);
 }, { interval: holdings.pollingInterval, immediate: false });
+
+// ── Time range filter ─────────────────────────────────────────────────────────
+const RANGE_OPTIONS = [
+  { label: '7D',  days: 7 },
+  { label: '30D', days: 30 },
+  { label: '90D', days: 90 },
+  { label: 'ALL', days: null },
+] as const;
+
+const selectedDays = ref<number | null>(null);
+
+const filteredCurve = computed(() => {
+  const all = holdings.portfolioEquityCurve;
+  if (!selectedDays.value) return all;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - selectedDays.value);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  return all.filter((p) => p.date >= cutoffStr);
+});
 </script>
 
 <template>
@@ -50,7 +69,24 @@ usePolling(async () => {
 
       <v-row>
         <v-col cols="12" xl="8">
-          <PerformanceEquityCurveChart :points="holdings.portfolioEquityCurve" />
+          <div class="d-flex justify-end mb-2">
+            <v-btn-toggle
+              v-model="selectedDays"
+              density="compact"
+              variant="tonal"
+              size="small"
+              mandatory
+            >
+              <v-btn
+                v-for="opt in RANGE_OPTIONS"
+                :key="opt.label"
+                :value="opt.days"
+              >
+                {{ opt.label }}
+              </v-btn>
+            </v-btn-toggle>
+          </div>
+          <PerformanceEquityCurveChart :points="filteredCurve" />
         </v-col>
         <v-col cols="12" xl="4">
           <PerformanceRiskPanel :metrics="holdings.portfolioMetrics" />

@@ -1107,6 +1107,17 @@ export function useTraderContracts() {
         (payload) =>
           mapPagedResponse(payload, mapAuditLogEntry, DEFAULT_PAGE_LIMITS.auditLog),
       ),
+
+    fetchHealth: () =>
+      request(API_ENDPOINTS.health, { method: 'GET' }, (payload) => {
+        const p = payload as Record<string, unknown>;
+        return {
+          status: (p.status as string) ?? 'unknown',
+          uptime: (p.uptime as number) ?? 0,
+          timestamp: (p.timestamp as string) ?? '',
+          services: (p.services as Record<string, { status: string; latencyMs?: number; detail?: string }>) ?? {},
+        };
+      }),
   } satisfies {
     fetchStatus: () => Promise<StatusSnapshot>;
     fetchWatchlist: () => Promise<WatchlistAsset[]>;
@@ -1146,5 +1157,11 @@ export function useTraderContracts() {
       limit: number,
       filters?: AuditLogFilters,
     ) => Promise<AuditLogResponse>;
+    fetchHealth: () => Promise<{
+      status: string;
+      uptime: number;
+      timestamp: string;
+      services: Record<string, { status: string; latencyMs?: number; detail?: string }>;
+    }>;
   };
 }

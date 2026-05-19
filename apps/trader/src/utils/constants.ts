@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   controlResume: '/api/v1/control/resume',
   auditLog: '/api/v1/audit-log',
   eventsStream: '/api/v1/events/stream',
+  health: '/health',
 } as const;
 
 export const DEFAULT_PAGE_LIMITS = {
