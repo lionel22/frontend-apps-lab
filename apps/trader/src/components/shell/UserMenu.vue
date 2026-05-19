@@ -3,6 +3,10 @@ import { computed } from 'vue';
 import { useSession } from '~/composables/useSession';
 import { formatDateTime } from '~/utils/formatters';
 
+const props = withDefaults(defineProps<{ compact?: boolean }>(), {
+  compact: false,
+});
+
 const session = useSession();
 
 const actorInput = computed({
@@ -40,9 +44,9 @@ async function logout() {
 </script>
 
 <template>
-  <v-menu location="bottom" offset="8">
-    <template #activator="{ props }">
-      <v-btn v-bind="props" variant="text" class="px-2">
+  <v-menu class="bx-menu-root" attach="body" location="bottom" offset="8">
+    <template #activator="{ props: activatorProps }">
+      <v-btn v-if="!props.compact" v-bind="activatorProps" variant="text" class="px-2">
         <v-avatar size="28" color="primary" class="mr-2">
           <span style="font-size: 0.72rem; font-weight: 700">{{ identityInitials }}</span>
         </v-avatar>
@@ -52,6 +56,12 @@ async function logout() {
             Last login {{ lastLoginLabel }}
           </span>
         </div>
+      </v-btn>
+
+      <v-btn v-else v-bind="activatorProps" variant="text" size="small" class="px-1">
+        <v-avatar size="28" color="primary">
+          <span style="font-size: 0.72rem; font-weight: 700">{{ identityInitials }}</span>
+        </v-avatar>
       </v-btn>
     </template>
 
@@ -92,3 +102,9 @@ async function logout() {
     </v-card>
   </v-menu>
 </template>
+
+<style scoped>
+.bx-menu-root {
+  display: contents;
+}
+</style>

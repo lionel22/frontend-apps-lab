@@ -10,7 +10,14 @@ const recentItems = computed(() => notifications.items.value.slice(0, 12));
 </script>
 
 <template>
-  <v-menu v-model="menuOpen" location="bottom" offset="8" :close-on-content-click="false">
+  <v-menu
+    v-model="menuOpen"
+    class="bx-menu-root"
+    attach="body"
+    location="bottom"
+    offset="8"
+    :close-on-content-click="false"
+  >
     <template #activator="{ props }">
       <v-badge
         :content="notifications.unreadCount.value"
@@ -69,3 +76,9 @@ const recentItems = computed(() => notifications.items.value.slice(0, 12));
     </v-card>
   </v-menu>
 </template>
+
+<style scoped>
+.bx-menu-root {
+  display: contents;
+}
+</style>

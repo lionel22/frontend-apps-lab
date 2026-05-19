@@ -16,7 +16,20 @@ interface TraderSseEnvelope {
   data?: unknown;
 }
 
+interface RefreshPlan {
+  status: boolean;
+  watchlist: boolean;
+  signals: boolean;
+  traderPositions: boolean;
+  positionsSnapshot: boolean;
+  positionHealthOnly: boolean;
+  trades: boolean;
+  holdingsSnapshot: boolean;
+  backtests: boolean;
+}
+
 const POLLING_FALLBACK_DELAY_MS = 3000;
+const SSE_REFRESH_DEBOUNCE_MS = 250;
 const LIVE_FEED_AUTH_MESSAGE = 'Authentication is required to restore the live feed.';
 const FALLBACK_ALERT_MESSAGE =
   'Live feed disconnected. Falling back to page polling until the stream reconnects.';
@@ -51,6 +64,73 @@ function parseEnvelope(message: EventSourceMessage): TraderSseEnvelope | null {
   }
 }
 
+function createRefreshPlan(): RefreshPlan {
+  return {
+    status: false,
+    watchlist: false,
+    signals: false,
+    traderPositions: false,
+    positionsSnapshot: false,
+    positionHealthOnly: false,
+    trades: false,
+    holdingsSnapshot: false,
+    backtests: false,
+  };
+}
+
+function buildRefreshPlan(eventTypes: Iterable<string>): RefreshPlan {
+  const plan = createRefreshPlan();
+
+  for (const eventType of eventTypes) {
+    const normalizedType = eventType.toLowerCase();
+
+    if (normalizedType.startsWith('signal:')) {
+      plan.signals = true;
+      plan.positionHealthOnly = true;
+      continue;
+    }
+
+    if (normalizedType.startsWith('watchlist:')) {
+      plan.watchlist = true;
+      plan.status = true;
+      continue;
+    }
+
+    if (
+      normalizedType.startsWith('position:') ||
+      normalizedType.startsWith('trade:') ||
+      normalizedType.startsWith('holdings:') ||
+      normalizedType.startsWith('portfolio:')
+    ) {
+      plan.status = true;
+      plan.traderPositions = true;
+      plan.positionsSnapshot = true;
+      plan.trades = true;
+      plan.holdingsSnapshot = true;
+      continue;
+    }
+
+    if (
+      normalizedType.startsWith('control:') ||
+      normalizedType.startsWith('status:') ||
+      normalizedType.includes('killswitch')
+    ) {
+      plan.status = true;
+      plan.traderPositions = true;
+      continue;
+    }
+
+    if (normalizedType.startsWith('backtest:')) {
+      plan.backtests = true;
+      continue;
+    }
+
+    plan.status = true;
+  }
+
+  return plan;
+}
+
 export function useSSE() {
   const runtimeConfig = useRuntimeConfig();
   const session = useSession();
@@ -67,6 +147,10 @@ export function useSSE() {
       API_ENDPOINTS.eventsStream,
     ),
   );
+  const pendingRefreshEventTypes = new Set<string>();
+  let pendingFullSnapshot = false;
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  let refreshInFlight = false;
 
   function clearReconnectTimer() {
     if (reconnectTimer) {
@@ -82,9 +166,48 @@ export function useSSE() {
     }
   }
 
+  function clearRefreshTimer() {
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+      refreshTimer = null;
+    }
+  }
+
+  function resetRefreshQueue() {
+    clearRefreshTimer();
+    pendingFullSnapshot = false;
+    pendingRefreshEventTypes.clear();
+  }
+
+  function scheduleRefreshFlush(delayMs = SSE_REFRESH_DEBOUNCE_MS) {
+    if (refreshTimer) {
+      if (delayMs > 0) {
+        return;
+      }
+
+      clearRefreshTimer();
+    }
+
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
+      void flushPendingRefreshes();
+    }, delayMs);
+  }
+
+  function queueEventRefresh(eventType: string) {
+    pendingRefreshEventTypes.add(eventType);
+    scheduleRefreshFlush();
+  }
+
+  function queueFullSnapshotRefresh() {
+    pendingFullSnapshot = true;
+    scheduleRefreshFlush(0);
+  }
+
   function stopConnection(reason: string | null = null) {
     clearReconnectTimer();
     clearFallbackTimer();
+    resetRefreshQueue();
 
     if (activeController) {
       activeController.abort();
@@ -121,53 +244,85 @@ export function useSSE() {
     ]);
   }
 
-  async function refreshForEventType(eventType: string) {
-    const normalizedType = eventType.toLowerCase();
+  async function refreshForEventTypes(eventTypes: Iterable<string>) {
+    const plan = buildRefreshPlan(eventTypes);
+    const refreshes: Array<Promise<unknown>> = [];
 
-    if (normalizedType.startsWith('signal:')) {
-      await Promise.allSettled([
-        trader.fetchSignals(true),
-        positions.fetchPositionHealth(true),
-      ]);
-      return;
+    if (plan.status) {
+      refreshes.push(trader.fetchStatus(true));
     }
 
-    if (normalizedType.startsWith('watchlist:')) {
-      await Promise.allSettled([trader.fetchWatchlist(true), trader.fetchStatus(true)]);
-      return;
+    if (plan.watchlist) {
+      refreshes.push(trader.fetchWatchlist(true));
     }
 
-    if (
-      normalizedType.startsWith('position:') ||
-      normalizedType.startsWith('trade:') ||
-      normalizedType.startsWith('holdings:') ||
-      normalizedType.startsWith('portfolio:')
-    ) {
-      await Promise.allSettled([
-        trader.fetchStatus(true),
-        trader.fetchPositions(true),
-        positions.refreshSnapshot(true),
+    if (plan.signals) {
+      refreshes.push(trader.fetchSignals(true));
+    }
+
+    if (plan.traderPositions) {
+      refreshes.push(trader.fetchPositions(true));
+    }
+
+    if (plan.positionsSnapshot) {
+      refreshes.push(positions.refreshSnapshot(true));
+    } else if (plan.positionHealthOnly) {
+      refreshes.push(positions.fetchPositionHealth(true));
+    }
+
+    if (plan.trades) {
+      refreshes.push(
         trader.fetchTrades(trader.trades.offset, trader.trades.limit, true),
-        holdings.refreshSnapshot(true),
-      ]);
+      );
+    }
+
+    if (plan.holdingsSnapshot) {
+      refreshes.push(holdings.refreshSnapshot(true));
+    }
+
+    if (plan.backtests) {
+      refreshes.push(refreshBacktests());
+    }
+
+    if (refreshes.length === 0) {
       return;
     }
 
-    if (
-      normalizedType.startsWith('control:') ||
-      normalizedType.startsWith('status:') ||
-      normalizedType.includes('killswitch')
-    ) {
-      await Promise.allSettled([trader.fetchStatus(true), trader.fetchPositions(true)]);
+    await Promise.allSettled(refreshes);
+  }
+
+  async function flushPendingRefreshes() {
+    if (refreshInFlight) {
       return;
     }
 
-    if (normalizedType.startsWith('backtest:')) {
-      await refreshBacktests();
+    if (!pendingFullSnapshot && pendingRefreshEventTypes.size === 0) {
       return;
     }
 
-    await trader.fetchStatus(true);
+    const shouldRefreshFullSnapshot = pendingFullSnapshot;
+    const eventTypes = shouldRefreshFullSnapshot
+      ? []
+      : Array.from(pendingRefreshEventTypes);
+
+    pendingFullSnapshot = false;
+    pendingRefreshEventTypes.clear();
+    refreshInFlight = true;
+
+    try {
+      if (shouldRefreshFullSnapshot) {
+        await refreshFullSnapshot();
+        return;
+      }
+
+      await refreshForEventTypes(eventTypes);
+    } finally {
+      refreshInFlight = false;
+
+      if (pendingFullSnapshot || pendingRefreshEventTypes.size > 0) {
+        scheduleRefreshFlush(0);
+      }
+    }
   }
 
   function schedulePollingFallback() {
@@ -189,7 +344,7 @@ export function useSSE() {
         message: FALLBACK_ALERT_MESSAGE,
         severity: 'warning',
       });
-      void refreshFullSnapshot();
+      queueFullSnapshotRefresh();
     }, POLLING_FALLBACK_DELAY_MS);
   }
 
@@ -241,13 +396,13 @@ export function useSSE() {
           message: `Sequence gap on ${eventType}. Data refresh started automatically.`,
           severity: 'warning',
         });
-        void refreshFullSnapshot();
+        queueFullSnapshotRefresh();
         return;
       }
     }
 
     notifications.recordEvent(eventType, envelope?.data);
-    void refreshForEventType(eventType);
+    queueEventRefresh(eventType);
   }
 
   async function connect() {

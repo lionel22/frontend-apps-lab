@@ -116,7 +116,9 @@ onBeforeUnmount(() => {
   <div class="bx-global-search">
     <v-menu
       v-model="menuOpen"
+      class="bx-search-menu-root"
       :close-on-content-click="false"
+      attach="body"
       location="bottom"
       offset="8"
       max-width="420"
@@ -182,6 +184,10 @@ onBeforeUnmount(() => {
 <style scoped>
 .bx-global-search {
   width: min(420px, 45vw);
+}
+
+.bx-search-menu-root {
+  display: contents;
 }
 
 .bx-search-empty {

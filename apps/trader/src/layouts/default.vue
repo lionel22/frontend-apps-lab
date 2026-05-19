@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useDisplay } from 'vuetify';
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts';
 import { useNotifications } from '~/composables/useNotifications';
 import { NAV_ITEMS } from '~/utils/constants';
@@ -11,11 +12,14 @@ import { useTraderStore } from '~/stores/trader';
 const drawer = ref(true);
 const route = useRoute();
 useSSE();
+const display = useDisplay();
 const session = useSession();
 const keyboard = useKeyboardShortcuts();
 const notifications = useNotifications();
 const ui = useUiStore();
 const trader = useTraderStore();
+
+const isDesktop = computed(() => display.mdAndUp.value);
 
 const tradingModeBadge = computed(() => {
   const mode = trader.status?.tradingMode;
@@ -64,6 +68,10 @@ function updateClock() {
 updateClock();
 if (import.meta.client) {
   setInterval(updateClock, 1000);
+}
+
+function toggleNavigation() {
+  drawer.value = !drawer.value;
 }
 
 watch(
@@ -134,11 +142,28 @@ keyboard.useShortcut({
   description: 'Navigate to the next console page',
   handler: () => navigateRelative(1),
 });
+
+watch(
+  isDesktop,
+  (desktop) => {
+    if (desktop) {
+      drawer.value = true;
+      return;
+    }
+
+    drawer.value = false;
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
   <v-app class="bx-grid-bg">
-    <v-navigation-drawer v-model="drawer" :rail="false" width="240">
+    <v-navigation-drawer
+      v-model="drawer"
+      :temporary="!isDesktop"
+      width="240"
+    >
       <div class="pa-4 pb-2">
         <div class="d-flex align-center ga-2 mb-1">
           <div class="bx-logo-mark">BX</div>
@@ -178,17 +203,17 @@ keyboard.useShortcut({
 
     <v-app-bar flat height="56">
       <template #prepend>
-        <v-btn variant="text" size="small" @click="drawer = !drawer">
+        <v-btn variant="text" size="small" @click="toggleNavigation">
           ☰
         </v-btn>
       </template>
 
-      <v-toolbar-title>Operator Console</v-toolbar-title>
+      <v-toolbar-title class="bx-toolbar-title">Operator Console</v-toolbar-title>
 
       <template #append>
-        <div class="d-flex align-center ga-3">
+        <div class="d-flex align-center ga-2 flex-nowrap">
           <v-chip
-            v-if="tradingModeBadge"
+            v-if="isDesktop && tradingModeBadge"
             :color="tradingModeBadge.color"
             variant="tonal"
             size="small"
@@ -197,11 +222,11 @@ keyboard.useShortcut({
           >
             {{ tradingModeBadge.label }}
           </v-chip>
-          <ShellGlobalSearch />
+          <ShellGlobalSearch v-if="isDesktop" />
           <ShellNotificationCenter />
-          <ShellKillSwitchButton />
-          <div class="bx-clock">{{ currentTime }}</div>
-          <ShellUserMenu />
+          <ShellKillSwitchButton :compact="!isDesktop" />
+          <div v-if="isDesktop" class="bx-clock">{{ currentTime }}</div>
+          <ShellUserMenu :compact="!isDesktop" />
         </div>
       </template>
     </v-app-bar>
@@ -241,6 +266,10 @@ keyboard.useShortcut({
   font-family: var(--bx-font-mono);
   letter-spacing: 0.08em;
   font-size: 0.65rem;
+}
+
+.bx-toolbar-title {
+  min-width: 0;
 }
 
 .bx-clock {

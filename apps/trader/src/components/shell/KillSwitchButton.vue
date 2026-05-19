@@ -8,6 +8,10 @@ import { usePositionsStore } from '~/stores/usePositionsStore';
 import { useTraderStore } from '~/stores/trader';
 import { validateControlAction } from '~/utils/validators';
 
+const props = withDefaults(defineProps<{ compact?: boolean }>(), {
+  compact: false,
+});
+
 const trader = useTraderStore();
 const positions = usePositionsStore();
 const session = useSession();
@@ -149,6 +153,7 @@ keyboard.useShortcut({
 <template>
   <div class="d-inline-flex align-center">
     <v-btn
+      v-if="!props.compact"
       :color="trader.isKillSwitchActive ? 'success' : 'error'"
       variant="tonal"
       size="small"
@@ -158,7 +163,17 @@ keyboard.useShortcut({
       {{ trader.isKillSwitchActive ? 'Resume Trading' : 'Kill-Switch' }}
     </v-btn>
 
-    <v-dialog v-model="dialogOpen" max-width="540">
+    <v-btn
+      v-else
+      :color="trader.isKillSwitchActive ? 'success' : 'error'"
+      variant="text"
+      size="small"
+      :disabled="!can('execute_kill_switch')"
+      :icon="trader.isKillSwitchActive ? 'mdi-play' : 'mdi-alert-octagon-outline'"
+      @click="openDialog"
+    />
+
+    <v-dialog v-model="dialogOpen" attach="body" max-width="540">
       <v-card>
         <v-card-title>{{ dialogTitle }}</v-card-title>
         <v-card-text>
