@@ -73,6 +73,55 @@ describe('useTraderApi', () => {
     expect(result.groups[1]?.items[0]?.badge).toBe('CRITICAL');
   });
 
+  it('encodes slash-delimited symbols in signal readiness requests', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          symbol: 'RLUSD/USDT',
+          timeframe: '4h',
+          readiness: 82.5,
+          compositeScore: 0.65,
+          confidence: 0.72,
+          dimensions: {
+            technical: { label: 'Technical', score: 81, sources: ['ema'] },
+            regime: { label: 'Regime', score: 73, sources: ['trend'] },
+            liquidity: { label: 'Liquidity', score: 88, sources: ['volume'] },
+            participation: { label: 'Participation', score: 76, sources: ['open-interest'] },
+            sentiment: { label: 'Sentiment', score: 69, sources: ['news'] },
+          },
+          thresholds: {
+            buy: 75,
+            sell: 25,
+            distanceToBuy: 7.5,
+            distanceToSell: 57.5,
+            nearestAction: 'BUY',
+            nearestDistance: 7.5,
+          },
+          positionSizePreview: null,
+          missingRequiredSignals: [],
+          staleSignals: [],
+          timestamp: 1779149022949,
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      ),
+    );
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const api = useTraderContracts();
+    const readiness = await api.fetchSignalReadiness('RLUSD/USDT', '4h');
+
+    expect(readiness.symbol).toBe('RLUSD/USDT');
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      '/api/v1/signals/RLUSD%2FUSDT/readiness?timeframe=4h',
+    );
+  });
+
   it('surfaces rate-limit errors as UI alerts', async () => {
     vi.stubGlobal(
       'fetch',

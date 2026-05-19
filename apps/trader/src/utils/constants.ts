@@ -1,3 +1,5 @@
+const encodePathSegment = (value: string): string => encodeURIComponent(value);
+
 export const API_ENDPOINTS = {
   status: '/api/v1/status',
   watchlist: '/api/v1/watchlist',
@@ -5,9 +7,10 @@ export const API_ENDPOINTS = {
   watchlistAssets: '/api/v1/watchlist/assets',
   watchlistAssetRemove: '/api/v1/watchlist/assets/remove',
   signals: '/api/v1/signals',
-  signalDetail: (symbol: string): string => `/api/v1/signals/${symbol}`,
+  signalDetail: (symbol: string): string =>
+    `/api/v1/signals/${encodePathSegment(symbol)}`,
   signalReadiness: (symbol: string): string =>
-    `/api/v1/signals/${symbol}/readiness`,
+    `/api/v1/signals/${encodePathSegment(symbol)}/readiness`,
   signalCorrelation: '/api/v1/signals/correlation',
   positions: '/api/v1/positions',
   positionHealth: '/api/v1/positions/health',
