@@ -70,7 +70,7 @@ async function submit() {
 
     session.setActor(response.actor);
     session.setRole(response.role);
-    session.setToken(response.accessToken);
+    session.setToken(response.accessToken, new Date().toISOString(), response.expiresIn);
 
     await navigateTo(redirectTarget.value);
   } catch (error) {

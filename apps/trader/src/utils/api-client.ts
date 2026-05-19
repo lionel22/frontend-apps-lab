@@ -116,31 +116,42 @@ function classifyCode(status: number): ApiError['code'] {
 export class ApiClient {
   constructor(private readonly config: ApiClientConfig) {}
 
-  async request<T>(
-    path: string,
-    options: ApiRequestOptions = {},
-  ): Promise<T> {
+  private buildHeaders(options: ApiRequestOptions): Record<string, string> {
     const token = this.config.getToken?.() ?? null;
-    const headers: Record<string, string> = {
+    return {
       Accept: 'application/json',
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
     };
+  }
 
+  private buildUrl(path: string, query?: ApiRequestOptions['query']): string {
     const cleanBase = this.config.baseUrl.endsWith('/')
       ? this.config.baseUrl.slice(0, -1)
       : this.config.baseUrl;
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    const url = `${cleanBase}${cleanPath}${buildQueryString(options.query)}`;
+    return `${cleanBase}${cleanPath}${buildQueryString(query)}`;
+  }
 
-    const response = await fetch(url, {
+  private async executeRequest(
+    path: string,
+    options: ApiRequestOptions = {},
+  ): Promise<Response> {
+    return fetch(this.buildUrl(path, options.query), {
       method: options.method ?? 'GET',
-      headers,
+      headers: this.buildHeaders(options),
       body: options.body ? JSON.stringify(options.body) : undefined,
       signal: options.signal,
       credentials: 'include',
     });
+  }
+
+  async request<T>(
+    path: string,
+    options: ApiRequestOptions = {},
+  ): Promise<T> {
+    const response = await this.executeRequest(path, options);
 
     const payload = await parseResponseBody(response);
 
@@ -165,6 +176,39 @@ export class ApiClient {
     }
 
     return payload as T;
+  }
+
+  async requestBlob(
+    path: string,
+    options: ApiRequestOptions = {},
+  ): Promise<{ blob: Blob; headers: Headers }> {
+    const response = await this.executeRequest(path, options);
+
+    if (!response.ok) {
+      const payload = await parseResponseBody(response);
+      const error: ApiError = {
+        status: response.status,
+        code: classifyCode(response.status),
+        message: resolveErrorMessage(response.status, payload),
+        details: payload,
+        fieldErrors: normalizeFieldErrors(payload),
+      };
+
+      if (response.status === 401) {
+        this.config.onUnauthorized?.();
+      }
+
+      if (response.status === 429) {
+        this.config.onRateLimited?.();
+      }
+
+      throw error;
+    }
+
+    return {
+      blob: await response.blob(),
+      headers: response.headers,
+    };
   }
 }
 

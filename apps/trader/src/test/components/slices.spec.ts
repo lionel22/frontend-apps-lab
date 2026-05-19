@@ -1,11 +1,14 @@
 import { shallowMount, type MountingOptions } from '@vue/test-utils';
-import { nextTick } from 'vue';
-import { describe, expect, it } from 'vitest';
+import { nextTick, ref } from 'vue';
+import { describe, expect, it, vi } from 'vitest';
 import StatusCards from '~/components/dashboard/StatusCards.vue';
 import WatchlistTable from '~/components/watchlist/WatchlistTable.vue';
 import SignalDetail from '~/components/signals/SignalDetail.vue';
+import ReadinessGauge from '~/components/signals/ReadinessGauge.vue';
 import CorrelationMatrix from '~/components/signals/CorrelationMatrix.vue';
+import HealthGauge from '~/components/positions/HealthGauge.vue';
 import PositionsTable from '~/components/positions/PositionsTable.vue';
+import ExportButton from '~/components/shell/ExportButton.vue';
 import TradesTable from '~/components/trades/TradesTable.vue';
 import ConfigForm from '~/components/config/ConfigForm.vue';
 import BacktestLaunchModal from '~/components/backtest/BacktestLaunchModal.vue';
@@ -79,12 +82,19 @@ const globalStubs = {
   VDivider: PassThrough,
   VSpacer: PassThrough,
   VAlert: PassThrough,
+  VProgressLinear: PassThrough,
+  VProgressCircular: PassThrough,
   SharedLoadingSpinner: PassThrough,
   TradesTradeExpander: PassThrough,
   SignalsSignalStalenessIndicator: PassThrough,
   SignalsSignalContributionChart: PassThrough,
+  SignalsReadinessGauge: PassThrough,
+  SignalsDimensionBreakdown: PassThrough,
   ConfigDiffViewer: PassThrough,
 };
+
+vi.stubGlobal('useCookie', () => ref<string | null>(null));
+vi.stubGlobal('useRuntimeConfig', () => ({ public: {} }));
 
 function mountWithStubs<T>(
   component: T,
@@ -191,6 +201,19 @@ describe('component slices', () => {
     expect(filledWrapper.text()).toContain('Confidence 0.67');
   });
 
+  it('renders readiness gauge thresholds', () => {
+    const wrapper = mountWithStubs(ReadinessGauge, {
+      props: {
+        score: 81,
+        title: 'Entry Window',
+      },
+    });
+
+    expect(wrapper.text()).toContain('Entry Window');
+    expect(wrapper.text()).toContain('81/100');
+    expect(wrapper.text()).toContain('Go');
+  });
+
   it('renders correlation matrix with degraded marker', () => {
     const wrapper = mountWithStubs(CorrelationMatrix, {
       props: {
@@ -248,6 +271,69 @@ describe('component slices', () => {
     expect(wrapper.text()).not.toContain('No open positions.');
   });
 
+  it('renders position health gauge content', () => {
+    const wrapper = mountWithStubs(HealthGauge, {
+      props: {
+        health: {
+          positionId: 'position-1',
+          symbol: 'BTCUSDT',
+          side: 'LONG',
+          healthScore: 74,
+          status: 'HOLD',
+          exitPressureScore: 28,
+          currentCompositeScore: 0.5,
+          entryCompositeScore: 0.22,
+          currentRegimeScore: 0.18,
+          entryRegimeScore: 0.11,
+          positionAgeHours: 8,
+          averageTradeDurationHours: 22,
+          syntheticStopPrice: 59000,
+          dimensions: {
+            pnlTrend: {
+              label: 'PnL Trend',
+              score: 80,
+              weight: 0.25,
+              contribution: 20,
+              detail: 'Supportive',
+            },
+            signalEvolution: {
+              label: 'Signal Evolution',
+              score: 72,
+              weight: 0.25,
+              contribution: 18,
+              detail: 'Stable',
+            },
+            duration: {
+              label: 'Duration',
+              score: 76,
+              weight: 0.2,
+              contribution: 15.2,
+              detail: 'Normal',
+            },
+            stopProximity: {
+              label: 'Stop Proximity',
+              score: 70,
+              weight: 0.15,
+              contribution: 10.5,
+              detail: 'Room left',
+            },
+            regimeCompatibility: {
+              label: 'Regime Compatibility',
+              score: 69,
+              weight: 0.15,
+              contribution: 10.35,
+              detail: 'Aligned',
+            },
+          },
+          updatedAt: '2026-05-18T20:00:00.000Z',
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain('HOLD');
+    expect(wrapper.text()).toContain('Exit pressure 28/100');
+  });
+
   it('emits trades pagination changes', async () => {
     const wrapper = mountWithStubs(TradesTable, {
       props: {
@@ -292,6 +378,34 @@ describe('component slices', () => {
     const emitted = wrapper.emitted('page-change');
     expect(emitted).toBeTruthy();
     expect(emitted?.[0]).toEqual([50, 50]);
+  });
+
+  it('emits export start and cancel actions', async () => {
+    const wrapper = mountWithStubs(ExportButton, {
+      props: {
+        loading: false,
+        label: 'Export Trades CSV',
+      },
+    });
+
+    const startButton = wrapper.find('button');
+    await startButton.trigger('click');
+
+    expect(wrapper.emitted('download')).toBeTruthy();
+
+    await wrapper.setProps({ loading: true });
+
+    const cancelButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Cancel'));
+    expect(cancelButton).toBeTruthy();
+    if (!cancelButton) {
+      throw new Error('Expected Cancel button to exist in ExportButton test.');
+    }
+
+    await cancelButton.trigger('click');
+
+    expect(wrapper.emitted('cancel')).toBeTruthy();
   });
 
   it('emits config submit when form is valid', async () => {

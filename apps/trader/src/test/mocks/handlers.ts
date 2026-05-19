@@ -6,7 +6,14 @@ function normalizePath(url: string): string {
 }
 
 export function createFetchMock(
-  routes: Record<string, { status?: number; body: unknown }>,
+  routes: Record<
+    string,
+    {
+      status?: number;
+      body: unknown;
+      headers?: Record<string, string>;
+    }
+  >,
 ) {
   return vi.fn(async (input: string | URL | Request) => {
     const rawUrl =
@@ -25,9 +32,14 @@ export function createFetchMock(
       });
     }
 
-    return new Response(JSON.stringify(route.body), {
+    const isTextResponse = typeof route.body === 'string';
+
+    return new Response(isTextResponse ? route.body : JSON.stringify(route.body), {
       status: route.status ?? 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': isTextResponse ? 'text/plain' : 'application/json',
+        ...(route.headers ?? {}),
+      },
     });
   });
 }

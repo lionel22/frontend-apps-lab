@@ -6,9 +6,20 @@ export const API_ENDPOINTS = {
   watchlistAssetRemove: '/api/v1/watchlist/assets/remove',
   signals: '/api/v1/signals',
   signalDetail: (symbol: string): string => `/api/v1/signals/${symbol}`,
+  signalReadiness: (symbol: string): string =>
+    `/api/v1/signals/${symbol}/readiness`,
   signalCorrelation: '/api/v1/signals/correlation',
   positions: '/api/v1/positions',
+  positionHealth: '/api/v1/positions/health',
+  holdings: '/api/v1/holdings',
   trades: '/api/v1/trades',
+  exportTrades: '/api/v1/export/trades',
+  exportPositions: '/api/v1/export/positions',
+  exportHoldings: '/api/v1/export/holdings',
+  exportBacktest: (id: string): string => `/api/v1/export/backtests/${id}`,
+  search: '/api/v1/search',
+  portfolioMetrics: '/api/v1/portfolio/metrics',
+  portfolioEquityCurve: '/api/v1/portfolio/equity-curve',
   backtests: '/api/v1/backtest',
   backtestDetail: (id: string): string => `/api/v1/backtest/${id}`,
   backtestLaunch: '/api/v1/backtest/launch',
@@ -17,6 +28,7 @@ export const API_ENDPOINTS = {
   controlKillSwitch: '/api/v1/control/kill-switch',
   controlResume: '/api/v1/control/resume',
   auditLog: '/api/v1/audit-log',
+  eventsStream: '/api/v1/events/stream',
 } as const;
 
 export const DEFAULT_PAGE_LIMITS = {
@@ -31,6 +43,8 @@ export const DEFAULT_POLLING_INTERVALS = {
   watchlist: 30000,
   signals: 30000,
   positions: 5000,
+  positionHealth: 5000,
+  holdings: 10000,
   trades: 10000,
   backtests: 30000,
 } as const;
@@ -40,7 +54,11 @@ export const CACHE_MAX_AGE_MS = {
   watchlist: 30000,
   signals: 30000,
   positions: 5000,
+  positionHealth: 5000,
+  holdings: 10000,
   trades: 10000,
+  portfolioMetrics: 10000,
+  portfolioEquityCurve: 10000,
   backtests: 30000,
   backtestDetail: 10000,
   config: 60000,
@@ -51,6 +69,8 @@ export const CACHE_MAX_AGE_MS = {
 export const NAV_ITEMS = [
   { title: 'Dashboard', to: '/' },
   { title: 'Status', to: '/status' },
+  { title: 'Holdings', to: '/holdings' },
+  { title: 'Performance', to: '/performance' },
   { title: 'Watchlist', to: '/watchlist' },
   { title: 'Signals', to: '/signals' },
   { title: 'Correlation', to: '/correlation' },

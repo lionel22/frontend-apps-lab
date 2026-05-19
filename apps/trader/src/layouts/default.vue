@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts';
+import { useNotifications } from '~/composables/useNotifications';
 import { NAV_ITEMS } from '~/utils/constants';
+import { useSSE } from '~/composables/useSSE';
 import { useSession } from '~/composables/useSession';
 import { useUiStore } from '~/stores/ui';
 
 const drawer = ref(true);
 const route = useRoute();
+useSSE();
 const session = useSession();
+const keyboard = useKeyboardShortcuts();
+const notifications = useNotifications();
 const ui = useUiStore();
-
-const actorInput = computed({
-  get: () => session.actor.value,
-  set: (value: string) => session.setActor(value),
-});
 
 const sessionBanner = computed(() => {
   if (session.expired.value) {
@@ -24,17 +25,18 @@ const sessionBanner = computed(() => {
   return '';
 });
 
-function clearAlerts() {
-  ui.clearAlerts();
-}
+async function navigateRelative(offset: -1 | 1) {
+  const currentIndex = NAV_ITEMS.findIndex((item) => item.to === route.path);
+  if (currentIndex === -1) {
+    return;
+  }
 
-async function openLogin() {
-  await navigateTo('/login');
-}
+  const target = NAV_ITEMS[currentIndex + offset];
+  if (!target) {
+    return;
+  }
 
-async function logout() {
-  session.setToken(null);
-  await navigateTo('/login');
+  await navigateTo(target.to);
 }
 
 const currentTime = ref('');
@@ -50,6 +52,75 @@ updateClock();
 if (import.meta.client) {
   setInterval(updateClock, 1000);
 }
+
+watch(
+  () => ({
+    requireAuth: session.requireAuth.value,
+    isAuthenticated: session.isAuthenticated.value,
+    expired: session.expired.value,
+    currentPath: route.path,
+  }),
+  ({ requireAuth, isAuthenticated, expired, currentPath }) => {
+    if (!requireAuth || currentPath === '/login') {
+      return;
+    }
+
+    if (!isAuthenticated || expired) {
+      void navigateTo({
+        path: '/login',
+        query: { redirect: currentPath },
+      });
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => ({
+    isExpiringSoon: session.isExpiringSoon.value,
+    expiryWarningShown: session.expiryWarningShown.value,
+    expiresAt: session.expiresAt.value,
+  }),
+  ({ isExpiringSoon, expiryWarningShown, expiresAt }) => {
+    if (!isExpiringSoon || expiryWarningShown) {
+      return;
+    }
+
+    ui.addAlert({
+      type: 'warning',
+      message: 'Session expires in less than 5 minutes. Reauthenticate soon.',
+      duration: 0,
+    });
+    notifications.pushNotification({
+      source: 'session:expiry-warning',
+      title: 'Session expiring soon',
+      message: expiresAt
+        ? `Current token expires at ${expiresAt}.`
+        : 'Current token expires in less than 5 minutes.',
+      severity: 'warning',
+      requiresAck: true,
+      signature: `session-expiry:${expiresAt ?? 'unknown'}`,
+    });
+    session.markExpiryWarningShown();
+  },
+  { immediate: true },
+);
+
+keyboard.useShortcut({
+  id: 'shell-navigate-previous',
+  key: 'arrowleft',
+  label: 'Left Arrow',
+  description: 'Navigate to the previous console page',
+  handler: () => navigateRelative(-1),
+});
+
+keyboard.useShortcut({
+  id: 'shell-navigate-next',
+  key: 'arrowright',
+  label: 'Right Arrow',
+  description: 'Navigate to the next console page',
+  handler: () => navigateRelative(1),
+});
 </script>
 
 <template>
@@ -86,8 +157,7 @@ if (import.meta.client) {
         <div class="pa-4">
           <div class="bx-divider mb-3" />
           <div class="d-flex align-center ga-2">
-            <span class="bx-status-dot bx-status-dot--live" />
-            <span style="font-size: 0.7rem; color: rgba(226,232,240,0.5); font-weight: 500">System Online</span>
+            <ShellSSEStatusDot />
           </div>
         </div>
       </template>
@@ -104,36 +174,20 @@ if (import.meta.client) {
 
       <template #append>
         <div class="d-flex align-center ga-3">
+          <ShellGlobalSearch />
+          <ShellNotificationCenter />
+          <ShellKillSwitchButton />
           <div class="bx-clock">{{ currentTime }}</div>
-          <v-text-field
-            v-model="actorInput"
-            label="Actor ID"
-            hide-details
-            style="width: 200px"
-          />
-          <v-btn
-            v-if="session.requireAuth.value || session.token.value"
-            variant="text"
-            size="small"
-            @click="session.isAuthenticated.value ? logout() : openLogin()"
-          >
-            {{ session.isAuthenticated.value ? 'Logout' : 'Login' }}
-          </v-btn>
-          <v-btn
-            v-if="ui.alerts.length"
-            variant="tonal"
-            color="warning"
-            size="small"
-            @click="clearAlerts"
-          >
-            {{ ui.alerts.length }} Alert{{ ui.alerts.length > 1 ? 's' : '' }}
-          </v-btn>
+          <ShellUserMenu />
         </div>
       </template>
     </v-app-bar>
 
     <v-main>
       <v-container class="py-6 px-6" fluid>
+        <ShellConnectionBanner class="mb-5" />
+        <ShellKillSwitchBanner class="mb-5" />
+        <ShellKeyboardShortcuts />
         <v-alert v-if="sessionBanner" type="warning" variant="tonal" class="mb-5">
           {{ sessionBanner }}
         </v-alert>

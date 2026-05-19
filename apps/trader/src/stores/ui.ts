@@ -17,6 +17,13 @@ function createDefaultFilters(): TraderFilters {
     watchlistLiquidityTier: null,
     tradesOffset: 0,
     tradesLimit: 50,
+    tradesSearch: '',
+    tradesSymbol: '',
+    tradesSide: null,
+    tradesClosedAfter: '',
+    tradesClosedBefore: '',
+    tradesSortBy: 'closedAt',
+    tradesSortDirection: 'desc',
     auditOffset: 0,
     auditLimit: 50,
   };

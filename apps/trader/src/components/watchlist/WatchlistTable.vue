@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { WatchlistAsset } from '~/types/trader';
+import type { SignalView, WatchlistAsset } from '~/types/trader';
 import { formatDateTime } from '~/utils/formatters';
 
 defineProps<{
   assets: WatchlistAsset[];
   busy?: boolean;
+  signalsBySymbol?: Partial<Record<string, SignalView>>;
 }>();
 
 const emit = defineEmits<{
@@ -20,6 +21,7 @@ const emit = defineEmits<{
         <thead>
           <tr>
             <th>Symbol</th>
+            <th>Readiness</th>
             <th>Rank Score</th>
             <th>Sector</th>
             <th>Liquidity</th>
@@ -29,7 +31,7 @@ const emit = defineEmits<{
         </thead>
         <tbody>
           <tr v-if="!assets.length">
-            <td colspan="6" class="text-center py-8 text-medium-emphasis">
+            <td colspan="7" class="text-center py-8 text-medium-emphasis">
               No eligible assets match current filters.
             </td>
           </tr>
@@ -45,6 +47,17 @@ const emit = defineEmits<{
                 >
                   Manual
                 </v-chip>
+              </div>
+            </td>
+            <td style="min-width: 180px">
+              <div class="d-flex flex-column ga-1">
+                <SignalsReadinessGauge
+                  :score="signalsBySymbol?.[asset.symbol] ? ((signalsBySymbol[asset.symbol]!.compositeScore + 1) / 2) * 100 : null"
+                  dense
+                />
+                <span class="text-caption text-medium-emphasis">
+                  {{ signalsBySymbol?.[asset.symbol]?.timeframe ?? 'No signal yet' }}
+                </span>
               </div>
             </td>
             <td>

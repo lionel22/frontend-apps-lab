@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useTraderStore } from '~/stores/trader';
 import { useLocalStorage } from '~/composables/useLocalStorage';
+import { usePolling } from '~/composables/usePolling';
 
 const trader = useTraderStore();
 const manualSymbol = ref('');
@@ -13,7 +14,7 @@ const liquidityTierFilter = useLocalStorage<string | null>(
 );
 
 onMounted(async () => {
-  await trader.fetchWatchlist(true);
+  await Promise.all([trader.fetchWatchlist(true), trader.fetchSignals(true)]);
 });
 
 const isManualSymbolValid = computed(() =>
@@ -57,6 +58,36 @@ const filteredAssets = computed(() => {
   });
 });
 
+const preferredSignalsBySymbol = computed(() => {
+  const bySymbol: Record<string, (typeof trader.signals)[number]> = {};
+  const timeframeRank: Record<string, number> = {
+    '4h': 0,
+    '1h': 1,
+    '1d': 2,
+  };
+
+  for (const signal of trader.signals) {
+    const current = bySymbol[signal.symbol];
+
+    if (!current) {
+      bySymbol[signal.symbol] = signal;
+      continue;
+    }
+
+    const currentRank = timeframeRank[current.timeframe] ?? 99;
+    const nextRank = timeframeRank[signal.timeframe] ?? 99;
+
+    if (
+      nextRank < currentRank ||
+      (nextRank === currentRank && signal.confidence > current.confidence)
+    ) {
+      bySymbol[signal.symbol] = signal;
+    }
+  }
+
+  return bySymbol;
+});
+
 async function rebuildWatchlist() {
   await trader.rebuildWatchlist();
 }
@@ -75,6 +106,10 @@ async function addManualAsset() {
 async function removeAsset(symbol: string) {
   await trader.removeWatchlistAsset(symbol);
 }
+
+usePolling(async () => {
+  await Promise.all([trader.fetchWatchlist(true), trader.fetchSignals(true)]);
+}, { interval: trader.pollingIntervals.watchlist, immediate: false });
 </script>
 
 <template>
@@ -82,6 +117,11 @@ async function removeAsset(symbol: string) {
     <SharedApiErrorAlert
       :error="trader.errors.watchlist"
       title="Watchlist Load Error"
+    />
+
+    <SharedApiErrorAlert
+      :error="trader.errors.signals"
+      title="Watchlist Readiness Error"
     />
 
     <v-card>
@@ -148,6 +188,7 @@ async function removeAsset(symbol: string) {
     <WatchlistTable
       :assets="filteredAssets"
       :busy="trader.loading.watchlist"
+      :signals-by-symbol="preferredSignalsBySymbol"
       @remove="removeAsset"
     />
   </div>

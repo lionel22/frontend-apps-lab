@@ -14,6 +14,7 @@ import type {
   SignalView,
   StatusSnapshot,
   Trade,
+  TradeFilters,
   TraderResourceKey,
   WatchlistAsset,
   WatchlistRebuildResponse,
@@ -43,7 +44,11 @@ function createLoadingState(): LoadingState {
     watchlist: false,
     signals: false,
     positions: false,
+    positionHealth: false,
+    holdings: false,
     trades: false,
+    portfolioMetrics: false,
+    portfolioEquityCurve: false,
     backtests: false,
     backtestDetail: false,
     config: false,
@@ -58,7 +63,11 @@ function createErrorState(): ErrorState {
     watchlist: null,
     signals: null,
     positions: null,
+    positionHealth: null,
+    holdings: null,
     trades: null,
+    portfolioMetrics: null,
+    portfolioEquityCurve: null,
     backtests: null,
     backtestDetail: null,
     config: null,
@@ -85,6 +94,32 @@ function extractApiMessage(error: unknown): string {
     return error.message;
   }
   return 'Unknown trader API error.';
+}
+
+function blankToUndefined(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  return normalized.length ? normalized : undefined;
+}
+
+function buildTradeFiltersFromUi(
+  filters: ReturnType<typeof useUiStore>['filters'],
+  overrides: Partial<TradeFilters> = {},
+): TradeFilters {
+  return {
+    symbol: overrides.symbol ?? blankToUndefined(filters.tradesSymbol),
+    side: overrides.side ?? filters.tradesSide ?? undefined,
+    search: overrides.search ?? blankToUndefined(filters.tradesSearch),
+    closedAfter:
+      overrides.closedAfter ?? blankToUndefined(filters.tradesClosedAfter),
+    closedBefore:
+      overrides.closedBefore ?? blankToUndefined(filters.tradesClosedBefore),
+    sortBy: overrides.sortBy ?? filters.tradesSortBy,
+    sortDirection: overrides.sortDirection ?? filters.tradesSortDirection,
+  };
 }
 
 export const useTraderStore = defineStore('trader', () => {
@@ -274,16 +309,30 @@ export const useTraderStore = defineStore('trader', () => {
     offset = ui.filters.tradesOffset,
     limit = ui.filters.tradesLimit,
     force = false,
+    filters: Partial<TradeFilters> = {},
   ) {
     if (!shouldFetch('trades', force) && trades.value.offset === offset) {
       return trades.value;
     }
 
+    const nextFilters = buildTradeFiltersFromUi(ui.filters, filters);
+
     ui.updateFilter('tradesOffset', offset);
     ui.updateFilter('tradesLimit', limit);
+    ui.updateFilter('tradesSearch', nextFilters.search ?? '');
+    ui.updateFilter('tradesSymbol', nextFilters.symbol ?? '');
+    ui.updateFilter('tradesSide', nextFilters.side ?? null);
+    ui.updateFilter('tradesClosedAfter', nextFilters.closedAfter ?? '');
+    ui.updateFilter('tradesClosedBefore', nextFilters.closedBefore ?? '');
+    ui.updateFilter('tradesSortBy', nextFilters.sortBy ?? 'closedAt');
+    ui.updateFilter('tradesSortDirection', nextFilters.sortDirection ?? 'desc');
 
     const result = await runResourceAction('trades', () =>
-      api.fetchTrades(offset, limit),
+      api.fetchTrades({
+        offset,
+        limit,
+        ...nextFilters,
+      }),
     );
     if (result) {
       trades.value = result;

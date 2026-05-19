@@ -59,6 +59,52 @@ export interface SignalView {
   timestamp: number;
 }
 
+export type SignalReadinessAction = 'BUY' | 'SELL' | 'NEUTRAL';
+
+export interface SignalReadinessDimension {
+  label: string;
+  score: number;
+  sources: string[];
+}
+
+export interface SignalReadinessThresholds {
+  buy: number;
+  sell: number;
+  distanceToBuy: number;
+  distanceToSell: number;
+  nearestAction: SignalReadinessAction;
+  nearestDistance: number;
+}
+
+export interface SignalReadinessPositionSizePreview {
+  entryPrice: number;
+  stopLoss: number;
+  quantity: number;
+  cashAtRisk: number;
+  stopDistance: number;
+  riskFraction: number;
+}
+
+export interface SignalReadiness {
+  symbol: string;
+  timeframe: SignalTimeframe;
+  readiness: number;
+  compositeScore: number;
+  confidence: number;
+  dimensions: {
+    technical: SignalReadinessDimension;
+    regime: SignalReadinessDimension;
+    liquidity: SignalReadinessDimension;
+    participation: SignalReadinessDimension;
+    sentiment: SignalReadinessDimension;
+  };
+  thresholds: SignalReadinessThresholds;
+  positionSizePreview: SignalReadinessPositionSizePreview | null;
+  missingRequiredSignals: string[];
+  staleSignals: string[];
+  timestamp: number;
+}
+
 export interface Position {
   id: string;
   symbol: string;
@@ -73,6 +119,84 @@ export interface Position {
   updatedAt: string;
   leverage: number;
   riskPct: number;
+}
+
+export type PositionHealthStatus = 'HOLD' | 'WATCH' | 'EXIT_PRESSURE';
+
+export interface PositionHealthDimension {
+  label: string;
+  score: number;
+  weight: number;
+  contribution: number;
+  detail: string;
+}
+
+export interface PositionHealth {
+  positionId: string;
+  symbol: string;
+  side: PositionSide;
+  healthScore: number;
+  status: PositionHealthStatus;
+  exitPressureScore: number;
+  currentCompositeScore: number;
+  entryCompositeScore: number;
+  currentRegimeScore: number;
+  entryRegimeScore: number;
+  positionAgeHours: number;
+  averageTradeDurationHours: number;
+  syntheticStopPrice: number | null;
+  dimensions: {
+    pnlTrend: PositionHealthDimension;
+    signalEvolution: PositionHealthDimension;
+    duration: PositionHealthDimension;
+    stopProximity: PositionHealthDimension;
+    regimeCompatibility: PositionHealthDimension;
+  };
+  updatedAt: string;
+}
+
+export interface SpotHolding {
+  symbol: string;
+  freeBalance: number;
+  lockedBalance: number;
+  totalBalance: number;
+  costBasis: number;
+  marketValue: number;
+  lastUpdated: string;
+}
+
+export interface PortfolioAllocation {
+  symbol: string;
+  quantity: number;
+  value: number;
+  allocationPct: number;
+}
+
+export interface PortfolioMetrics {
+  asOf: string;
+  totalValue: number;
+  realizedPnl: number;
+  unrealizedPnl: number;
+  dailyChange: number;
+  dailyChangePct: number;
+  totalExposure: number;
+  exposurePct: number;
+  maxConcentrationPct: number;
+  winRate: number;
+  profitFactor: number | null;
+  sharpeRatio: number;
+  maxDrawdown: number;
+  calmarRatio: number;
+  averageTradeDurationHours: number;
+  totalTrades: number;
+  portfolioAllocation: PortfolioAllocation[];
+}
+
+export interface PortfolioEquityPoint {
+  date: string;
+  dailyPnl: number;
+  cumulativePnl: number;
+  equity: number;
 }
 
 export interface Trade {
@@ -93,6 +217,64 @@ export interface Trade {
   createdAt: string;
   signalSnapshot?: Record<string, unknown>;
   regimeContext?: string;
+}
+
+export type TradeSortField =
+  | 'closedAt'
+  | 'openedAt'
+  | 'realizedPnl'
+  | 'symbol'
+  | 'entryPrice'
+  | 'exitPrice';
+
+export type TradeSortDirection = 'asc' | 'desc';
+
+export interface TradeFilters {
+  symbol?: string;
+  side?: TradeSide;
+  search?: string;
+  closedAfter?: string;
+  closedBefore?: string;
+  sortBy?: TradeSortField;
+  sortDirection?: TradeSortDirection;
+}
+
+export interface TradeListQuery extends TradeFilters {
+  offset: number;
+  limit: number;
+}
+
+export interface FileDownload {
+  blob: Blob;
+  fileName: string;
+}
+
+export type SearchResourceType =
+  | 'position'
+  | 'holding'
+  | 'watchlist'
+  | 'trade'
+  | 'backtest'
+  | 'auditLog';
+
+export interface SearchResultItem {
+  resource: SearchResourceType;
+  id: string;
+  title: string;
+  subtitle: string;
+  badge?: string;
+}
+
+export interface SearchResultGroup {
+  resource: SearchResourceType;
+  label: string;
+  items: SearchResultItem[];
+}
+
+export interface SearchResponse {
+  query: string;
+  total: number;
+  groups: SearchResultGroup[];
 }
 
 export interface BacktestRunSummary {
@@ -221,6 +403,13 @@ export interface TraderFilters {
   watchlistLiquidityTier: string | null;
   tradesOffset: number;
   tradesLimit: number;
+  tradesSearch: string;
+  tradesSymbol: string;
+  tradesSide: TradeSide | null;
+  tradesClosedAfter: string;
+  tradesClosedBefore: string;
+  tradesSortBy: TradeSortField;
+  tradesSortDirection: TradeSortDirection;
   auditOffset: number;
   auditLimit: number;
 }
@@ -230,7 +419,11 @@ export type TraderResourceKey =
   | 'watchlist'
   | 'signals'
   | 'positions'
+  | 'positionHealth'
+  | 'holdings'
   | 'trades'
+  | 'portfolioMetrics'
+  | 'portfolioEquityCurve'
   | 'backtests'
   | 'backtestDetail'
   | 'config'

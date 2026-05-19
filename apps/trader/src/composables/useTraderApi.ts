@@ -11,17 +11,32 @@ import type {
   BacktestRunSummary,
   BacktestTimeframe,
   ControlActionPayload,
+  FileDownload,
   MarketScope,
   PagedResponse,
+  PortfolioAllocation,
+  PortfolioEquityPoint,
+  PortfolioMetrics,
   Position,
+  PositionHealth,
+  PositionHealthDimension,
   PositionSide,
+  SearchResponse,
+  SearchResultGroup,
+  SearchResultItem,
   SignalTimeframe,
   SignalCorrelationResponse,
   SignalCorrelationSummaryItem,
   SignalCorrelationWindow,
+  SignalReadiness,
+  SignalReadinessAction,
+  SignalReadinessDimension,
   SignalView,
+  SpotHolding,
   StatusSnapshot,
   Trade,
+  TradeFilters,
+  TradeListQuery,
   TradeSide,
   WatchlistAsset,
   WatchlistRebuildResponse,
@@ -42,6 +57,29 @@ import { useUiStore } from '~/stores/ui';
 
 interface TraderClientRequestOptions extends ApiRequestOptions {
   silent?: boolean;
+}
+
+function buildTradeQueryParams(query: Partial<TradeListQuery>) {
+  return {
+    offset: query.offset,
+    limit: query.limit,
+    symbol: query.symbol || undefined,
+    side: query.side || undefined,
+    search: query.search || undefined,
+    closedAfter: query.closedAfter || undefined,
+    closedBefore: query.closedBefore || undefined,
+    sortBy: query.sortBy || undefined,
+    sortDirection: query.sortDirection || undefined,
+  };
+}
+
+function parseContentDispositionFileName(
+  headers: Headers,
+  fallback: string,
+): string {
+  const disposition = headers.get('content-disposition') || '';
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  return match?.[1] || fallback;
 }
 
 export interface UseTraderApiOptions<T> extends TraderClientRequestOptions {
@@ -222,6 +260,68 @@ function mapSignalView(value: unknown): SignalView {
   };
 }
 
+function parseSignalReadinessAction(value: unknown): SignalReadinessAction {
+  const action = parseString(value, 'NEUTRAL');
+  if (action === 'BUY' || action === 'SELL') {
+    return action;
+  }
+  return 'NEUTRAL';
+}
+
+function mapSignalReadinessDimension(value: unknown): SignalReadinessDimension {
+  const row = asRecord(value);
+
+  return {
+    label: parseString(row.label),
+    score: parseNumber(row.score),
+    sources: asStringArray(row.sources),
+  };
+}
+
+function mapSignalReadiness(value: unknown): SignalReadiness {
+  const row = asRecord(value);
+  const dimensions = asRecord(row.dimensions);
+  const thresholds = asRecord(row.thresholds);
+  const positionSizePreview = asRecord(row.positionSizePreview);
+
+  return {
+    symbol: parseString(row.symbol),
+    timeframe: parseSignalTimeframe(row.timeframe),
+    readiness: parseNumber(row.readiness),
+    compositeScore: parseNumber(row.compositeScore),
+    confidence: parseNumber(row.confidence),
+    dimensions: {
+      technical: mapSignalReadinessDimension(dimensions.technical),
+      regime: mapSignalReadinessDimension(dimensions.regime),
+      liquidity: mapSignalReadinessDimension(dimensions.liquidity),
+      participation: mapSignalReadinessDimension(dimensions.participation),
+      sentiment: mapSignalReadinessDimension(dimensions.sentiment),
+    },
+    thresholds: {
+      buy: parseNumber(thresholds.buy),
+      sell: parseNumber(thresholds.sell),
+      distanceToBuy: parseNumber(thresholds.distanceToBuy),
+      distanceToSell: parseNumber(thresholds.distanceToSell),
+      nearestAction: parseSignalReadinessAction(thresholds.nearestAction),
+      nearestDistance: parseNumber(thresholds.nearestDistance),
+    },
+    positionSizePreview:
+      row.positionSizePreview === null
+        ? null
+        : {
+            entryPrice: parseNumber(positionSizePreview.entryPrice),
+            stopLoss: parseNumber(positionSizePreview.stopLoss),
+            quantity: parseNumber(positionSizePreview.quantity),
+            cashAtRisk: parseNumber(positionSizePreview.cashAtRisk),
+            stopDistance: parseNumber(positionSizePreview.stopDistance),
+            riskFraction: parseNumber(positionSizePreview.riskFraction),
+          },
+    missingRequiredSignals: asStringArray(row.missingRequiredSignals),
+    staleSignals: asStringArray(row.staleSignals),
+    timestamp: parseNumber(row.timestamp),
+  };
+}
+
 function mapPosition(value: unknown): Position {
   const row = asRecord(value);
   return {
@@ -238,6 +338,117 @@ function mapPosition(value: unknown): Position {
     updatedAt: parseIsoDate(row.updatedAt),
     leverage: parseNumber(row.leverage, 1),
     riskPct: parseNumber(row.riskPct),
+  };
+}
+
+function mapPositionHealthDimension(value: unknown): PositionHealthDimension {
+  const row = asRecord(value);
+  return {
+    label: parseString(row.label),
+    score: parseNumber(row.score),
+    weight: parseNumber(row.weight),
+    contribution: parseNumber(row.contribution),
+    detail: parseString(row.detail),
+  };
+}
+
+function mapPositionHealth(value: unknown): PositionHealth {
+  const row = asRecord(value);
+  const dimensions = asRecord(row.dimensions);
+  const statusCandidate = parseString(row.status, 'WATCH');
+
+  return {
+    positionId: parseString(row.positionId),
+    symbol: parseString(row.symbol),
+    side: parsePositionSide(row.side),
+    healthScore: parseNumber(row.healthScore),
+    status:
+      statusCandidate === 'HOLD' || statusCandidate === 'EXIT_PRESSURE'
+        ? statusCandidate
+        : 'WATCH',
+    exitPressureScore: parseNumber(row.exitPressureScore),
+    currentCompositeScore: parseNumber(row.currentCompositeScore),
+    entryCompositeScore: parseNumber(row.entryCompositeScore),
+    currentRegimeScore: parseNumber(row.currentRegimeScore),
+    entryRegimeScore: parseNumber(row.entryRegimeScore),
+    positionAgeHours: parseNumber(row.positionAgeHours),
+    averageTradeDurationHours: parseNumber(row.averageTradeDurationHours),
+    syntheticStopPrice:
+      row.syntheticStopPrice === null ? null : parseNumber(row.syntheticStopPrice),
+    dimensions: {
+      pnlTrend: mapPositionHealthDimension(dimensions.pnlTrend),
+      signalEvolution: mapPositionHealthDimension(dimensions.signalEvolution),
+      duration: mapPositionHealthDimension(dimensions.duration),
+      stopProximity: mapPositionHealthDimension(dimensions.stopProximity),
+      regimeCompatibility: mapPositionHealthDimension(dimensions.regimeCompatibility),
+    },
+    updatedAt: parseIsoDate(row.updatedAt),
+  };
+}
+
+function mapSpotHolding(value: unknown): SpotHolding {
+  const row = asRecord(value);
+  const freeBalance = parseNumber(row.freeBalance);
+  const lockedBalance = parseNumber(row.lockedBalance);
+  const totalBalance = freeBalance + lockedBalance;
+  const costBasis = parseNumber(row.costBasis);
+
+  return {
+    symbol: parseString(row.symbol),
+    freeBalance,
+    lockedBalance,
+    totalBalance,
+    costBasis,
+    marketValue: totalBalance * costBasis,
+    lastUpdated: parseIsoDate(row.lastUpdated),
+  };
+}
+
+function mapPortfolioAllocation(value: unknown): PortfolioAllocation {
+  const row = asRecord(value);
+  return {
+    symbol: parseString(row.symbol),
+    quantity: parseNumber(row.quantity),
+    value: parseNumber(row.value),
+    allocationPct: parseNumber(row.allocationPct),
+  };
+}
+
+function mapPortfolioMetrics(value: unknown): PortfolioMetrics {
+  const row = asRecord(value);
+  const portfolioAllocation = Array.isArray(row.portfolioAllocation)
+    ? row.portfolioAllocation.map(mapPortfolioAllocation)
+    : [];
+
+  return {
+    asOf: parseIsoDate(row.asOf),
+    totalValue: parseNumber(row.totalValue),
+    realizedPnl: parseNumber(row.realizedPnl),
+    unrealizedPnl: parseNumber(row.unrealizedPnl),
+    dailyChange: parseNumber(row.dailyChange),
+    dailyChangePct: parseNumber(row.dailyChangePct),
+    totalExposure: parseNumber(row.totalExposure),
+    exposurePct: parseNumber(row.exposurePct),
+    maxConcentrationPct: parseNumber(row.maxConcentrationPct),
+    winRate: parseNumber(row.winRate),
+    profitFactor:
+      row.profitFactor === null ? null : parseNumber(row.profitFactor),
+    sharpeRatio: parseNumber(row.sharpeRatio),
+    maxDrawdown: parseNumber(row.maxDrawdown),
+    calmarRatio: parseNumber(row.calmarRatio),
+    averageTradeDurationHours: parseNumber(row.averageTradeDurationHours),
+    totalTrades: parseNumber(row.totalTrades),
+    portfolioAllocation,
+  };
+}
+
+function mapPortfolioEquityPoint(value: unknown): PortfolioEquityPoint {
+  const row = asRecord(value);
+  return {
+    date: parseIsoDate(row.date),
+    dailyPnl: parseNumber(row.dailyPnl),
+    cumulativePnl: parseNumber(row.cumulativePnl),
+    equity: parseNumber(row.equity),
   };
 }
 
@@ -461,6 +672,51 @@ function mapCorrelationResponse(value: unknown): SignalCorrelationResponse {
   };
 }
 
+function parseSearchResource(value: unknown): SearchResultItem['resource'] {
+  const resource = parseString(value);
+  return resource === 'position' ||
+    resource === 'holding' ||
+    resource === 'watchlist' ||
+    resource === 'trade' ||
+    resource === 'backtest' ||
+    resource === 'auditLog'
+    ? resource
+    : 'trade';
+}
+
+function mapSearchResultItem(value: unknown): SearchResultItem {
+  const row = asRecord(value);
+  return {
+    resource: parseSearchResource(row.resource),
+    id: parseString(row.id),
+    title: parseString(row.title),
+    subtitle: parseString(row.subtitle),
+    badge: parseString(row.badge) || undefined,
+  };
+}
+
+function mapSearchResultGroup(value: unknown): SearchResultGroup {
+  const row = asRecord(value);
+  const items = Array.isArray(row.items) ? row.items.map(mapSearchResultItem) : [];
+
+  return {
+    resource: parseSearchResource(row.resource),
+    label: parseString(row.label),
+    items,
+  };
+}
+
+function mapSearchResponse(value: unknown): SearchResponse {
+  const row = asRecord(value);
+  return {
+    query: parseString(row.query),
+    total: parseNumber(row.total),
+    groups: Array.isArray(row.groups)
+      ? row.groups.map(mapSearchResultGroup)
+      : [],
+  };
+}
+
 function mapVoidOk(value: unknown): { ok: true } {
   const row = asRecord(value);
   return {
@@ -500,7 +756,36 @@ export function useTraderApiClient() {
     } catch (error) {
       const apiError = toApiError(error);
 
-      if (!options.silent) {
+      if (!options.silent && apiError.status !== 0) {
+        ui.addAlert({
+          type:
+            apiError.status === 429
+              ? 'warning'
+              : apiError.status >= 500
+                ? 'error'
+                : apiError.status === 403
+                  ? 'warning'
+                  : 'error',
+          message: apiError.message,
+        });
+      }
+
+      throw apiError;
+    }
+  }
+
+  async function requestBlob(
+    path: string,
+    options: TraderClientRequestOptions,
+  ): Promise<{ blob: Blob; headers: Headers }> {
+    try {
+      const result = await client.requestBlob(path, options);
+      session.markAuthorized();
+      return result;
+    } catch (error) {
+      const apiError = toApiError(error);
+
+      if (!options.silent && apiError.status !== 0) {
         ui.addAlert({
           type:
             apiError.status === 429
@@ -520,6 +805,7 @@ export function useTraderApiClient() {
 
   return {
     request,
+    requestBlob,
   };
 }
 
@@ -594,7 +880,7 @@ export function useTraderApi<T>(
 }
 
 export function useTraderContracts() {
-  const { request } = useTraderApiClient();
+  const { request, requestBlob } = useTraderApiClient();
 
   return {
     fetchStatus: () =>
@@ -644,21 +930,75 @@ export function useTraderContracts() {
     fetchSignalDetail: (symbol: string) =>
       request(API_ENDPOINTS.signalDetail(symbol), { method: 'GET' }, mapSignalView),
 
+    fetchSignalReadiness: (symbol: string, timeframe?: SignalTimeframe) =>
+      request(
+        API_ENDPOINTS.signalReadiness(symbol),
+        {
+          method: 'GET',
+          query: timeframe ? { timeframe } : undefined,
+        },
+        mapSignalReadiness,
+      ),
+
     fetchPositions: () =>
       request(API_ENDPOINTS.positions, { method: 'GET' }, (payload) => {
         const rows = Array.isArray(payload) ? payload : [];
         return rows.map(mapPosition);
       }),
 
-    fetchTrades: (offset: number, limit: number) =>
+    fetchPositionHealth: () =>
+      request(API_ENDPOINTS.positionHealth, { method: 'GET' }, (payload) => {
+        const rows = Array.isArray(payload) ? payload : [];
+        return rows.map(mapPositionHealth);
+      }),
+
+    fetchHoldings: () =>
+      request(API_ENDPOINTS.holdings, { method: 'GET' }, (payload) => {
+        const rows = Array.isArray(payload) ? payload : [];
+        return rows.map(mapSpotHolding);
+      }),
+
+    fetchPortfolioMetrics: () =>
+      request(
+        API_ENDPOINTS.portfolioMetrics,
+        { method: 'GET' },
+        mapPortfolioMetrics,
+      ),
+
+    fetchPortfolioEquityCurve: () =>
+      request(API_ENDPOINTS.portfolioEquityCurve, { method: 'GET' }, (payload) => {
+        const rows = Array.isArray(payload) ? payload : [];
+        return rows.map(mapPortfolioEquityPoint);
+      }),
+
+    fetchTrades: (query: TradeListQuery) =>
       request(
         API_ENDPOINTS.trades,
         {
           method: 'GET',
-          query: { offset, limit },
+          query: buildTradeQueryParams(query),
         },
         (payload) => mapPagedResponse(payload, mapTrade, DEFAULT_PAGE_LIMITS.trades),
       ),
+
+    downloadTradesExport: (
+      filters: TradeFilters = {},
+      signal?: AbortSignal,
+    ) =>
+      requestBlob(API_ENDPOINTS.exportTrades, {
+        method: 'GET',
+        signal,
+        headers: {
+          Accept: 'text/csv',
+        },
+        query: buildTradeQueryParams(filters),
+      }).then(({ blob, headers }) => ({
+        blob,
+        fileName: parseContentDispositionFileName(
+          headers,
+          'trades-export.csv',
+        ),
+      }) satisfies FileDownload),
 
     fetchBacktestList: (offset: number, limit: number) =>
       request(
@@ -735,6 +1075,16 @@ export function useTraderContracts() {
         mapCorrelationResponse,
       ),
 
+    searchGlobal: (query: string, limit = 5) =>
+      request(
+        API_ENDPOINTS.search,
+        {
+          method: 'GET',
+          query: { q: query, limit },
+        },
+        mapSearchResponse,
+      ),
+
     fetchAuditLog: (
       offset: number,
       limit: number,
@@ -765,8 +1115,20 @@ export function useTraderContracts() {
     removeWatchlistAsset: (symbol: string) => Promise<{ ok: true }>;
     fetchSignals: () => Promise<SignalView[]>;
     fetchSignalDetail: (symbol: string) => Promise<SignalView>;
+    fetchSignalReadiness: (
+      symbol: string,
+      timeframe?: SignalTimeframe,
+    ) => Promise<SignalReadiness>;
     fetchPositions: () => Promise<Position[]>;
-    fetchTrades: (offset: number, limit: number) => Promise<PagedResponse<Trade>>;
+    fetchPositionHealth: () => Promise<PositionHealth[]>;
+    fetchHoldings: () => Promise<SpotHolding[]>;
+    fetchPortfolioMetrics: () => Promise<PortfolioMetrics>;
+    fetchPortfolioEquityCurve: () => Promise<PortfolioEquityPoint[]>;
+    fetchTrades: (query: TradeListQuery) => Promise<PagedResponse<Trade>>;
+    downloadTradesExport: (
+      filters?: TradeFilters,
+      signal?: AbortSignal,
+    ) => Promise<FileDownload>;
     fetchBacktestList: (
       offset: number,
       limit: number,
@@ -778,6 +1140,7 @@ export function useTraderContracts() {
     triggerKillSwitch: (payload: ControlActionPayload) => Promise<{ ok: true }>;
     resumeTrading: (payload: ControlActionPayload) => Promise<{ ok: true }>;
     fetchCorrelation: (history?: number) => Promise<SignalCorrelationResponse>;
+    searchGlobal: (query: string, limit?: number) => Promise<SearchResponse>;
     fetchAuditLog: (
       offset: number,
       limit: number,

@@ -152,4 +152,36 @@ export const fixtures = {
       },
     ],
   },
+  search: {
+    query: 'btc',
+    total: 2,
+    groups: [
+      {
+        resource: 'trade',
+        label: 'Trades',
+        items: [
+          {
+            resource: 'trade',
+            id: 'trade-1',
+            title: 'BTCUSDT',
+            subtitle: 'LONG • Trade trade-1 • PnL 92.4',
+            badge: 'LONG',
+          },
+        ],
+      },
+      {
+        resource: 'auditLog',
+        label: 'Audit Log',
+        items: [
+          {
+            resource: 'auditLog',
+            id: 'audit-1',
+            title: 'RISK_HALT',
+            subtitle: 'Risk halt for BTCUSDT',
+            badge: 'CRITICAL',
+          },
+        ],
+      },
+    ],
+  },
 };
