@@ -7,6 +7,8 @@
     "build": "pnpm -r run build",
     "trader:dev": "pnpm --filter @trader-frontend/trader dev",
     "trader:build": "pnpm --filter @trader-frontend/trader build",
+    "trader:image:build": "pnpm --filter @trader-frontend/trader image:build",
+    "trader:image:build:push": "pnpm --filter @trader-frontend/trader image:build:push",
     "trader:preview": "pnpm --filter @trader-frontend/trader preview",
     "trader:lint": "pnpm --filter @trader-frontend/trader lint",
     "trader:typecheck": "pnpm --filter @trader-frontend/trader typecheck",

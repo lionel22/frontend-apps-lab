@@ -1,0 +1,15 @@
+.git
+.github
+.vscode
+node_modules
+**/node_modules
+.nuxt
+.output
+dist
+coverage
+apps/trader/.env
+apps/trader/.nuxt
+apps/trader/.output
+apps/trader/artifacts
+specs
+*.log

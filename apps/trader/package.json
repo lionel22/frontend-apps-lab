@@ -6,6 +6,8 @@
     "dev": "nuxt dev --dotenv .env",
     "build": "nuxt build --dotenv .env",
     "preview": "nuxt preview --dotenv .env",
+    "image:build": "sh ./scripts/docker-build-local.sh",
+    "image:build:push": "sh ./scripts/docker-build-push.sh",
     "typecheck": "nuxt typecheck --dotenv .env",
     "lint": "eslint src --ext .ts,.vue",
     "test": "vitest run",
