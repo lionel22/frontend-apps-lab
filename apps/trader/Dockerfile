@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS base
+FROM --platform=$BUILDPLATFORM node:20-bookworm-slim AS base
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
@@ -23,7 +23,7 @@ RUN test -f apps/trader/.env || : > apps/trader/.env
 RUN pnpm --filter @trader-frontend/trader build
 RUN test -f apps/trader/.output/server/index.mjs
 
-FROM node:20-bookworm-slim AS runtime
+FROM --platform=$TARGETPLATFORM node:20-bookworm-slim AS runtime
 
 WORKDIR /app
 

@@ -13,7 +13,12 @@ Le frontend lit sa configuration publique via [`apps/trader/.env.example`](./.en
 
 ## Build d'image Docker
 
-Pattern aligne sur `route54`: un build local simple et une variante `buildx --push`, avec image et plateforme fixees en dur.
+Pattern aligne sur `route54`: un build local simple et une variante `buildx --push`.
+
+Artefact actuellement pousse pour l'environnement de dev/integration:
+
+- `ghcr.io/digitalyser/trader-frontend:dev`
+- plateforme runtime cible: `linux/amd64`
 
 ```bash
 # Depuis la racine du repo
@@ -33,20 +38,34 @@ pnpm trader:image:build:push
 docker buildx build -f apps/trader/Dockerfile --push --platform linux/amd64 --tag ghcr.io/digitalyser/trader-frontend:dev .
 ```
 
+## Handoff deployment infra
+
+Le conteneur embarque un serveur Nuxt/Nitro et ecoute par defaut sur le port `3000`.
+
+- image: `ghcr.io/digitalyser/trader-frontend:dev`
+- type d'app: Nuxt 3 SSR / Nitro server
+- port conteneur: `3000`
+- protocole: HTTP
+- rebuild non requis pour changer les variables `runtimeConfig.public`
+
 ## Variables runtime du conteneur
 
-Variables principales:
+Source de verite locale: [`apps/trader/.env.example`](./.env.example).
 
-- `HOST` (defaut image: `0.0.0.0`)
-- `PORT` (defaut image: `3000`)
-- `NUXT_PUBLIC_API_URL`
-- `NUXT_PUBLIC_POLLING_INTERVAL_DEFAULT`
-- `NUXT_PUBLIC_POLLING_INTERVAL_POSITIONS`
-- `NUXT_PUBLIC_POLLING_INTERVAL_TRADES`
-- `NUXT_PUBLIC_TRADER_AUTH_TOKEN`
-- `NUXT_PUBLIC_TRADER_REQUIRE_AUTH`
+| Variable | Requis | Defaut | Usage |
+| --- | --- | --- | --- |
+| `HOST` | non | `0.0.0.0` | bind du serveur Nitro |
+| `PORT` | non | `3000` | port d'ecoute du conteneur |
+| `NUXT_PUBLIC_API_URL` | oui | aucune | base URL du backend trader |
+| `NUXT_PUBLIC_POLLING_INTERVAL_DEFAULT` | non | `30000` | polling par defaut des vues globales |
+| `NUXT_PUBLIC_POLLING_INTERVAL_POSITIONS` | non | `5000` | polling des positions |
+| `NUXT_PUBLIC_POLLING_INTERVAL_TRADES` | non | `10000` | polling des trades |
+| `NUXT_PUBLIC_TRADER_REQUIRE_AUTH` | non | `true` | active le garde d'authentification cote frontend |
+| `NUXT_PUBLIC_TRADER_AUTH_TOKEN` | non | vide | token public injecte au navigateur, a eviter sauf usage explicitement assume |
 
 Comme la configuration est portee par `runtimeConfig.public`, ces variables peuvent etre injectees au runtime pour Docker Compose ou Kubernetes sans rebuilder l'image.
+
+Important: toute variable prefixee par `NUXT_PUBLIC_` est exposee au navigateur. Ne pas y stocker de secret.
 
 ## Lancement
 
@@ -57,7 +76,7 @@ docker run --rm \
   --name trader-frontend \
   -p 3001:3000 \
   --env-file apps/trader/.env.example \
-  ghcr.io/digitalyser/trader-frontend:0.1.0
+  ghcr.io/digitalyser/trader-frontend:dev
 ```
 
 ### Docker Compose
@@ -65,7 +84,7 @@ docker run --rm \
 ```yaml
 services:
   trader-frontend:
-    image: ghcr.io/digitalyser/trader-frontend:0.1.0
+    image: ghcr.io/digitalyser/trader-frontend:dev
     env_file:
       - ./apps/trader/.env
     ports:
@@ -77,11 +96,14 @@ services:
 ```yaml
 image:
   repository: ghcr.io/digitalyser/trader-frontend
-  tag: 0.1.0
+  tag: dev
 
 env:
   PORT: '3000'
   NUXT_PUBLIC_API_URL: https://api.example.com
+  NUXT_PUBLIC_POLLING_INTERVAL_DEFAULT: '30000'
+  NUXT_PUBLIC_POLLING_INTERVAL_POSITIONS: '5000'
+  NUXT_PUBLIC_POLLING_INTERVAL_TRADES: '10000'
   NUXT_PUBLIC_TRADER_REQUIRE_AUTH: 'true'
 
 envFrom:
@@ -90,3 +112,8 @@ envFrom:
 ```
 
 Le seul secret potentiel cote frontend est `NUXT_PUBLIC_TRADER_AUTH_TOKEN`, a utiliser seulement si vous acceptez qu'il soit expose au navigateur. Par defaut, preferer une authentification utilisateur normale.
+
+## Notes infra
+
+- Si vous avez besoin d'un healthcheck, utilisez un probe HTTP simple sur `/` ou un probe TCP sur le port `3000`. Aucun endpoint dedie `/healthz` n'est expose aujourd'hui.
+- Pour un deploiement non-dev, remplacez le tag `dev` par un tag immutable (`git-sha` ou semver) mais gardez le meme contrat d'env.
