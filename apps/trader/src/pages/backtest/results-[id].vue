@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useLiveFeedPollingPause } from '~/composables/useLiveFeedPollingPause';
 import { useTraderStore } from '~/stores/trader';
 import { usePolling } from '~/composables/usePolling';
 
 const route = useRoute();
 const trader = useTraderStore();
+const shouldPauseLivePolling = useLiveFeedPollingPause();
 
 const runId = computed(() => String(route.params.id || ''));
 const run = computed(() => trader.backtestDetail);
 const shouldPausePolling = computed(
   () =>
+    shouldPauseLivePolling.value ||
     !run.value ||
     run.value.status === 'COMPLETED' ||
     run.value.status === 'FAILED',

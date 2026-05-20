@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import type { PositionHealth } from '~/types/trader';
+import { useLiveFeedPollingPause } from '~/composables/useLiveFeedPollingPause';
 import { usePositionsStore } from '~/stores/usePositionsStore';
 import { useTraderStore } from '~/stores/trader';
 import { usePolling } from '~/composables/usePolling';
 
 const trader = useTraderStore();
 const positions = usePositionsStore();
+const shouldPausePolling = useLiveFeedPollingPause();
 
 async function refresh(force = false) {
   await Promise.all([trader.fetchStatus(force), positions.refreshSnapshot(force)]);
@@ -18,7 +20,11 @@ onMounted(async () => {
 
 usePolling(async () => {
   await refresh(true);
-}, { interval: trader.pollingIntervals.positions, immediate: false });
+}, {
+  interval: trader.pollingIntervals.positions,
+  immediate: false,
+  paused: shouldPausePolling,
+});
 
 const cards = computed(() => positions.positionsWithHealth);
 const isInitialLoading = computed(

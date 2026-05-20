@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import type { BacktestLaunchPayload } from '~/types/trader';
+import { useLiveFeedPollingPause } from '~/composables/useLiveFeedPollingPause';
 import { useTraderStore } from '~/stores/trader';
 import { usePolling } from '~/composables/usePolling';
 
@@ -8,6 +9,7 @@ const trader = useTraderStore();
 const launchOpen = ref(false);
 const launching = ref(false);
 const symbolOptions = computed(() => trader.watchlist.map((asset) => asset.symbol));
+const shouldPausePolling = useLiveFeedPollingPause();
 
 async function refresh(force = false) {
   await trader.fetchBacktestList(
@@ -23,7 +25,11 @@ onMounted(async () => {
 
 usePolling(async () => {
   await refresh(true);
-}, { interval: trader.pollingIntervals.backtests, immediate: false });
+}, {
+  interval: trader.pollingIntervals.backtests,
+  immediate: false,
+  paused: shouldPausePolling,
+});
 
 async function onLaunch(payload: BacktestLaunchPayload) {
   launching.value = true;

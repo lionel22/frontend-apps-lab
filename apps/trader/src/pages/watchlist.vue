@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useTraderStore } from '~/stores/trader';
+import { useLiveFeedPollingPause } from '~/composables/useLiveFeedPollingPause';
 import { useLocalStorage } from '~/composables/useLocalStorage';
 import { usePolling } from '~/composables/usePolling';
 
 const trader = useTraderStore();
 const manualSymbol = ref('');
+const shouldPausePolling = useLiveFeedPollingPause();
 
 const sectorFilter = useLocalStorage<string | null>('trader.watchlist.sector', null);
 const liquidityTierFilter = useLocalStorage<string | null>(
@@ -109,7 +111,11 @@ async function removeAsset(symbol: string) {
 
 usePolling(async () => {
   await Promise.all([trader.fetchWatchlist(true), trader.fetchSignals(true)]);
-}, { interval: trader.pollingIntervals.watchlist, immediate: false });
+}, {
+  interval: trader.pollingIntervals.watchlist,
+  immediate: false,
+  paused: shouldPausePolling,
+});
 </script>
 
 <template>

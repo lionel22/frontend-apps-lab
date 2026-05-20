@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { useLiveFeedPollingPause } from '~/composables/useLiveFeedPollingPause';
 import { useTraderStore } from '~/stores/trader';
 import { usePolling } from '~/composables/usePolling';
 import { useTraderContracts } from '~/composables/useTraderApi';
@@ -7,6 +8,7 @@ import type { SignalReadiness, SignalView } from '~/types/trader';
 
 const trader = useTraderStore();
 const api = useTraderContracts();
+const shouldPausePolling = useLiveFeedPollingPause();
 const selectedSignalKey = ref<string>('');
 const readiness = ref<SignalReadiness | null>(null);
 const readinessLoading = ref(false);
@@ -97,7 +99,11 @@ watch(
 
 usePolling(async () => {
   await refreshSignals(true);
-}, { interval: trader.pollingIntervals.signals, immediate: false });
+}, {
+  interval: trader.pollingIntervals.signals,
+  immediate: false,
+  paused: shouldPausePolling,
+});
 </script>
 
 <template>

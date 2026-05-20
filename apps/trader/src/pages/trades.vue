@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import type { TradeFilters } from '~/types/trader';
+import { useLiveFeedPollingPause } from '~/composables/useLiveFeedPollingPause';
 import { useTraderContracts } from '~/composables/useTraderApi';
 import { useTraderStore } from '~/stores/trader';
 import { useUiStore } from '~/stores/ui';
@@ -10,6 +11,7 @@ import { toUtcEndOfDayIso, toUtcStartOfDayIso } from '~/utils/date-boundaries';
 const trader = useTraderStore();
 const ui = useUiStore();
 const contracts = useTraderContracts();
+const shouldPausePolling = useLiveFeedPollingPause();
 
 const filters = reactive({
   search: ui.filters.tradesSearch,
@@ -174,7 +176,11 @@ watch(
 
 usePolling(async () => {
   await refresh(true);
-}, { interval: trader.pollingIntervals.trades, immediate: false });
+}, {
+  interval: trader.pollingIntervals.trades,
+  immediate: false,
+  paused: shouldPausePolling,
+});
 
 async function handlePageChange(offset: number, limit: number) {
   await trader.fetchTrades(offset, limit, true, normalizeFilters());

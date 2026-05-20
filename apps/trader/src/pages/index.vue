@@ -2,10 +2,12 @@
 import { computed, onMounted } from 'vue';
 import { useTraderStore } from '~/stores/trader';
 import { useHoldingsStore } from '~/stores/useHoldingsStore';
+import { useLiveFeedPollingPause } from '~/composables/useLiveFeedPollingPause';
 import { usePolling } from '~/composables/usePolling';
 
 const trader = useTraderStore();
 const holdings = useHoldingsStore();
+const shouldPausePolling = useLiveFeedPollingPause();
 
 const isInitialLoading = computed(
   () =>
@@ -34,7 +36,11 @@ onMounted(async () => {
 
 usePolling(async () => {
   await refreshDashboard(true);
-}, { interval: trader.pollingIntervals.status, immediate: false });
+}, {
+  interval: trader.pollingIntervals.status,
+  immediate: false,
+  paused: shouldPausePolling,
+});
 </script>
 
 <template>

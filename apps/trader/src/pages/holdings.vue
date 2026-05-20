@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useLiveFeedPollingPause } from '~/composables/useLiveFeedPollingPause';
 import { usePolling } from '~/composables/usePolling';
 import { useHoldingsStore } from '~/stores/useHoldingsStore';
 import { useTraderStore } from '~/stores/trader';
 
 const holdings = useHoldingsStore();
 const trader = useTraderStore();
+const shouldPausePolling = useLiveFeedPollingPause();
 
 const isInitialLoading = computed(
   () =>
@@ -57,7 +59,11 @@ onMounted(async () => {
 
 usePolling(async () => {
   await refresh(true);
-}, { interval: holdings.pollingInterval, immediate: false });
+}, {
+  interval: holdings.pollingInterval,
+  immediate: false,
+  paused: shouldPausePolling,
+});
 </script>
 
 <template>

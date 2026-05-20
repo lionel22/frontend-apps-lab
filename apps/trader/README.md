@@ -13,7 +13,7 @@ Le frontend lit sa configuration publique via [`apps/trader/.env.example`](./.en
 
 ## Build d'image Docker
 
-Pattern aligne sur `route54`: un build local simple et une variante `buildx --push` pilotables par variables d'environnement.
+Pattern aligne sur `route54`: un build local simple et une variante `buildx --push`, avec image et plateforme fixees en dur.
 
 ```bash
 # Depuis la racine du repo
@@ -21,27 +21,16 @@ pnpm trader:image:build
 
 # Ou depuis l'app
 pnpm --filter @trader-frontend/trader image:build
+
+# Commande executee
+docker build -f apps/trader/Dockerfile -t ghcr.io/digitalyser/trader-frontend:dev .
 ```
 
-Variables de build supportees:
-
-- `TRADER_FRONTEND_IMAGE_NAME` (defaut: `trader-frontend`)
-- `TRADER_FRONTEND_IMAGE_TAG` (defaut: `dev`)
-- `TRADER_FRONTEND_DOCKERFILE` (defaut: `apps/trader/Dockerfile`)
-- `TRADER_FRONTEND_BUILD_CONTEXT` (defaut: `.`)
-- `TRADER_FRONTEND_IMAGE_PLATFORM` (defaut: `linux/amd64`, uniquement pour `image:build:push`)
-
-Exemples:
-
 ```bash
-TRADER_FRONTEND_IMAGE_NAME=ghcr.io/lionel22/trader-frontend \
-TRADER_FRONTEND_IMAGE_TAG=0.1.0 \
-pnpm trader:image:build
-
-TRADER_FRONTEND_IMAGE_NAME=ghcr.io/lionel22/trader-frontend \
-TRADER_FRONTEND_IMAGE_TAG=0.1.0 \
-TRADER_FRONTEND_IMAGE_PLATFORM=linux/amd64 \
 pnpm trader:image:build:push
+
+# Commande executee
+docker buildx build -f apps/trader/Dockerfile --push --platform linux/amd64 --tag ghcr.io/digitalyser/trader-frontend:dev .
 ```
 
 ## Variables runtime du conteneur
@@ -68,7 +57,7 @@ docker run --rm \
   --name trader-frontend \
   -p 3001:3000 \
   --env-file apps/trader/.env.example \
-  ghcr.io/lionel22/trader-frontend:0.1.0
+  ghcr.io/digitalyser/trader-frontend:0.1.0
 ```
 
 ### Docker Compose
@@ -76,7 +65,7 @@ docker run --rm \
 ```yaml
 services:
   trader-frontend:
-    image: ghcr.io/lionel22/trader-frontend:0.1.0
+    image: ghcr.io/digitalyser/trader-frontend:0.1.0
     env_file:
       - ./apps/trader/.env
     ports:
@@ -87,7 +76,7 @@ services:
 
 ```yaml
 image:
-  repository: ghcr.io/lionel22/trader-frontend
+  repository: ghcr.io/digitalyser/trader-frontend
   tag: 0.1.0
 
 env:
