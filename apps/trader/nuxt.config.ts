@@ -15,7 +15,10 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      traderApiBaseUrl: process.env.NUXT_PUBLIC_API_URL ?? '',
+      traderApiBaseUrl:
+        process.env.NUXT_PUBLIC_TRADER_API_BASE_URL ??
+        process.env.NUXT_PUBLIC_API_URL ??
+        '',
       traderPollingIntervalDefault: Number(
         process.env.NUXT_PUBLIC_POLLING_INTERVAL_DEFAULT ?? 30000,
       ),

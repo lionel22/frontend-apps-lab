@@ -1,9 +1,11 @@
 import { config } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, vi } from 'vitest';
+
 config.global.plugins = [];
 
 const stateStore = new Map<string, { value: unknown }>();
+const cookieStore = new Map<string, { value: unknown }>();
 
 globalThis.useState = ((key: string, initializer: () => unknown) => {
   if (!stateStore.has(key)) {
@@ -15,21 +17,31 @@ globalThis.useState = ((key: string, initializer: () => unknown) => {
 
 globalThis.useRuntimeConfig = (() => ({
   public: {
-    apiUrl: '',
-    traderApiBaseUrl: '',
-    traderPollingIntervalDefault: 30000,
-    traderPollingIntervalPositions: 5000,
-    traderPollingIntervalTrades: 10000,
-    traderAuthToken: '',
-    traderRequireAuth: false,
+    musicApiBaseUrl: 'http://localhost:4000',
+    musicPollingIntervalDefault: 15000,
+    musicRequireAuth: false,
+    musicAuthStorageKey: 'music.operator.session',
   },
 })) as typeof globalThis.useRuntimeConfig;
 
-globalThis.navigateTo = vi.fn(async (path: string) => path) as typeof globalThis.navigateTo;
+globalThis.useCookie = ((key: string, options?: { default?: () => unknown }) => {
+  if (!cookieStore.has(key)) {
+    cookieStore.set(key, {
+      value: options?.default ? options.default() : null,
+    });
+  }
+
+  return cookieStore.get(key);
+}) as typeof globalThis.useCookie;
+
+globalThis.navigateTo = vi.fn(async (to: unknown) => to) as typeof globalThis.navigateTo;
 globalThis.defineNuxtRouteMiddleware = ((handler: unknown) =>
   handler) as typeof globalThis.defineNuxtRouteMiddleware;
 globalThis.definePageMeta = (() => undefined) as typeof globalThis.definePageMeta;
 
 beforeEach(() => {
+  stateStore.clear();
+  cookieStore.clear();
+  vi.clearAllMocks();
   setActivePinia(createPinia());
 });

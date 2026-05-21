@@ -1,0 +1,33 @@
+{
+  "name": "@music-frontend/music",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --dotenv .env",
+    "build": "nuxt build --dotenv .env",
+    "preview": "nuxt preview --dotenv .env",
+    "typecheck": "nuxt typecheck --dotenv .env",
+    "lint": "eslint src --ext .ts,.vue",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^1.4.0",
+    "@types/node": "^22.8.1",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vitest/coverage-v8": "^2.1.3",
+    "@vue/eslint-config-typescript": "^14.1.4",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^25.0.1",
+    "nuxt": "^3.13.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.3",
+    "vue": "^3.5.0",
+    "vue-tsc": "^2.1.8"
+  },
+  "dependencies": {
+    "@mdi/font": "^7.4.47",
+    "@pinia/nuxt": "^0.9.0",
+    "pinia": "^3.0.0",
+    "vuetify": "^3.6.0"
+  }
+}

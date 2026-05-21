@@ -80,18 +80,25 @@ pnpm dev
 Read the spec docs in order (15 min):
 
 ```bash
+# Trader frontend feature
 cd specs/001-trader-frontend/
 cat quickstart.md       # ← Start here
 cat spec.md             # ← Understand requirements
 cat system-design.md    # ← Understand architecture
+
+# Music control center feature
+cd ../002-music-library-control-center/
+cat quickstart.md       # ← Start here for feature 002
+cat spec.md             # ← Understand requirements
+cat system-design.md    # ← Understand frozen API contracts
 ```
 
 ### Step 2: Pick a Task
 
-Open [specs/001-trader-frontend/tasks.md](specs/001-trader-frontend/tasks.md) and find an unchecked task (`- [ ] T###`):
+Open the relevant tasks file for the feature you are implementing and find an unchecked task (`- [ ] T###`):
 
 ```bash
-# Example: T001 — Initialize Nuxt 3 app
+# Example from feature 001: T001 — Initialize Nuxt 3 app
 - [ ] T001 — Initialize Nuxt 3 app with TypeScript strict mode and Vuetify 3
 ```
 
@@ -106,7 +113,7 @@ Before you start coding, mark the task as in-progress:
 
 ### Step 4: Code
 
-Implement the task following the acceptance criteria. Use [system-design.md](specs/001-trader-frontend/system-design.md) as a reference for architecture patterns.
+Implement the task following the acceptance criteria. Use the matching feature's `system-design.md` as a reference for architecture patterns.
 
 ### Step 5: Validate
 
@@ -452,19 +459,19 @@ vite-bundle-visualizer  # opens HTML report
 - **Pinia Docs**: https://pinia.vuejs.org/
 - **Vuetify 3 Docs**: https://vuetifyjs.com/
 - **TypeScript Handbook**: https://www.typescriptlang.org/docs/
-- **Spec Docs**: [specs/001-trader-frontend/](specs/001-trader-frontend/)
+- **Spec Docs**: [specs/001-trader-frontend/](specs/001-trader-frontend/) and [specs/002-music-library-control-center/](specs/002-music-library-control-center/)
 
 ---
 
 ## Next Steps
 
-1. **Read** [specs/001-trader-frontend/quickstart.md](specs/001-trader-frontend/quickstart.md) (15 min)
+1. **Read** the spec package you are joining: [specs/001-trader-frontend/quickstart.md](specs/001-trader-frontend/quickstart.md) or [specs/002-music-library-control-center/quickstart.md](specs/002-music-library-control-center/quickstart.md) (15 min)
 2. **Setup** ([Prerequisites](#prerequisites) and [Setup](#installation) sections above) (10 min)
-3. **Pick a Task** from [specs/001-trader-frontend/tasks.md](specs/001-trader-frontend/tasks.md) (5 min)
-4. **Start Coding** (refer to [system-design.md](specs/001-trader-frontend/system-design.md) for patterns)
+3. **Pick a Task** from the relevant task list, either [specs/001-trader-frontend/tasks.md](specs/001-trader-frontend/tasks.md) or [specs/002-music-library-control-center/tasks.md](specs/002-music-library-control-center/tasks.md) (5 min)
+4. **Start Coding** (refer to the matching system design, for example [specs/001-trader-frontend/system-design.md](specs/001-trader-frontend/system-design.md) or [specs/002-music-library-control-center/system-design.md](specs/002-music-library-control-center/system-design.md))
 
 ---
 
 **Happy coding!** 🚀
 
-For questions, check the FAQ in [specs/001-trader-frontend/quickstart.md](specs/001-trader-frontend/quickstart.md).
+For questions, start from the matching feature package and its supporting docs.

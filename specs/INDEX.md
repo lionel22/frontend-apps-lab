@@ -28,15 +28,30 @@ The primary frontend for the Breexio trader platform backend. Built with Nuxt 3 
 
 ---
 
+### 002-music-library-control-center
+
+**Status**: Ready for Implementation
+
+A dedicated frontend cockpit for music ingestion, title auto-completion, similar discovery, batch ingestion, organization dry-run, and operator monitoring for a Navidrome-targeted local library workflow.
+
+**Quick Links**:
+- [quickstart.md](002-music-library-control-center/quickstart.md) — Fast onboarding and first slices
+- [spec.md](002-music-library-control-center/spec.md) — Requirements & User Stories
+- [plan.md](002-music-library-control-center/plan.md) — Phases, sequencing, and validation
+- [tasks.md](002-music-library-control-center/tasks.md) — Task checklist for implementation
+- [system-design.md](002-music-library-control-center/system-design.md) — Architecture, normalized contracts, and polling model
+
+---
+
 ## How to Use This Spec
 
 ### For Developers
 
-1. **First Time Here?** Read [quickstart.md](001-trader-frontend/quickstart.md) to understand scope, setup, and first tasks.
-2. **Understand the Requirements?** Read [spec.md](001-trader-frontend/spec.md) focusing on User Stories 1–3 and Architecture.
-3. **Planning Your Week?** Open [plan.md](001-trader-frontend/plan.md) and identify your work blocks and dependencies.
-4. **Ready to Code?** Check [tasks.md](001-trader-frontend/tasks.md) for the next unchecked task. Mark it as in-progress, complete it, then mark as done.
-5. **Need Implementation Details?** Consult [system-design.md](001-trader-frontend/system-design.md) for Pinia stores, composables, API contracts, and file structure.
+1. **Choose the feature package first.** Use `001-trader-frontend` for the trader cockpit or `002-music-library-control-center` for the music operator app.
+2. **Understand the requirements.** Read the chosen feature's `spec.md` before planning work.
+3. **Plan your week.** Open the matching `plan.md` and identify work blocks and dependencies.
+4. **Ready to code?** Check the matching `tasks.md` for the next unchecked task. Mark it as in-progress, complete it, then mark as done.
+5. **Need implementation details?** Consult the matching `system-design.md` for stores, composables, API contracts, and file structure.
 
 ### For Architects / Tech Leads
 

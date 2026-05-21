@@ -47,6 +47,7 @@ The plan assumes a new backend app from spec `006` will expose the contracts des
 - `NUXT_PUBLIC_MUSIC_API_URL`
 - `NUXT_PUBLIC_MUSIC_POLLING_INTERVAL_DEFAULT`
 - `NUXT_PUBLIC_MUSIC_REQUIRE_AUTH`
+- `NUXT_PUBLIC_MUSIC_AUTH_STORAGE_KEY`
 
 ## Constitution Alignment
 
@@ -130,6 +131,7 @@ The plan assumes a new backend app from spec `006` will expose the contracts des
 
 - `POST /api/v1/music/ingestions`
 - `POST /api/v1/music/ingestions/upload`
+- `GET /api/v1/music/ingestions`
 - `GET /api/v1/music/ingestions/:id`
 - `GET /api/v1/music/search/titles/autocomplete`
 - `POST /api/v1/music/search/similar`
@@ -149,11 +151,15 @@ The plan assumes a new backend app from spec `006` will expose the contracts des
 5. `BatchSubmissionViewModel`
    - `searchId`, `selectedReferences`, `createdJobIds`
 
-### Contract Decisions That Block UX Completion
+### MVP Contract Decisions Now Frozen
 
-1. Exact shape of a suggestion reference from auto-complete.
-2. Exact shape of the organization dry-run diff.
-3. Whether job status is polled only or eventually upgraded to SSE.
+1. `GET /api/v1/music/ingestions` is the canonical read surface for jobs monitoring and returns both rows and summary counts used by the dashboard.
+2. Suggestion references from auto-complete normalize to a stable payload containing `provider`, `externalId` or `title/artist`, and a display label.
+3. The organization dry-run payload normalizes to `summary`, `plannedMoves`, `skippedConflicts`, and `ignoredItems`.
+4. Async refresh is polling-only for MVP; SSE stays out of scope until a later release proves the need.
+5. Provider failures remain explicit in the UI with manual retry or mode switch; no automatic frontend fallback is implemented.
+6. When auth is required, the app captures a shared operator bearer token once, stores it under a stable frontend session key, and attaches it in `useMusicApi`.
+7. `POST /api/v1/music/organize` differentiates preview and execution through `dryRun`; apply responses return `organizationRunId`, `summary`, `appliedMoves`, `skippedConflicts`, `ignoredItems`, and per-item errors when present.
 
 ## Implementation Sequence And Milestones
 
@@ -166,6 +172,7 @@ The plan assumes a new backend app from spec `006` will expose the contracts des
 - Scaffold `apps/music` with Nuxt config, package scripts, Vitest config, base layout, and global CSS.
 - Add root scripts for the new app.
 - Define runtime config for music backend access.
+- Add a minimal auth bootstrap for the shared operator token when `NUXT_PUBLIC_MUSIC_REQUIRE_AUTH` is enabled.
 - Build a first navigation shell and route structure.
 
 ### Phase 0 Validation
@@ -182,7 +189,7 @@ The plan assumes a new backend app from spec `006` will expose the contracts des
 
 - Create `useMusicApi` as the single HTTP adapter.
 - Create ingestion pages for URL and upload submission.
-- Create a jobs page or dashboard panel for ingestion state tracking.
+- Create a jobs page or dashboard panel for ingestion state tracking using `GET /api/v1/music/ingestions` as the canonical list and summary-count source.
 - Implement polling helpers and notifications.
 - Add normalized error handling for backend validation and operational failures.
 
@@ -235,7 +242,7 @@ The plan assumes a new backend app from spec `006` will expose the contracts des
 
 - Build the control-center dashboard with recent activity and KPI cards.
 - Improve mobile layout and keyboard navigation across all major flows.
-- Add failure-state guidance, empty states, and provider transparency.
+- Add failure-state guidance, empty states, provider transparency, and contrast-safe critical actions.
 - Finalize app-local testing setup and regression coverage on core composables and stores.
 
 ### Phase 4 Validation
@@ -244,6 +251,7 @@ The plan assumes a new backend app from spec `006` will expose the contracts des
 - Build, typecheck, and lint all pass.
 - Manual responsive check on desktop and mobile widths.
 - Keyboard-only walkthrough of ingestion, auto-complete, discovery, batch submission, and organization apply.
+- Manual check that critical actions show visible feedback immediately and maintain sufficient contrast in loading, error, and confirmation states.
 
 ## Validation Strategy
 
@@ -263,6 +271,7 @@ pnpm --filter @music-frontend/music test
 3. Auto-complete debounce and empty-state behavior.
 4. Similar discovery selection and batch submission state.
 5. Organization dry-run confirmation safety.
+6. Immediate action feedback and contrast on critical states.
 
 ### Manual Validation
 
@@ -272,6 +281,7 @@ pnpm --filter @music-frontend/music test
 4. Run similar discovery in both modes and verify provider visibility.
 5. Create a batch from selected results and verify jobs appear.
 6. Run a dry-run, inspect conflicts, then confirm apply.
+7. Verify the main submit, retry, and confirmation actions react immediately and remain readable in loading and error states.
 
 ## Rollout And Operational Risk
 

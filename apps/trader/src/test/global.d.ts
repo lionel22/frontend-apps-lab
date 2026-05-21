@@ -4,6 +4,7 @@ declare global {
   var useState: <T>(key: string, initializer: () => T) => Ref<T>;
   var useRuntimeConfig: () => {
     public: {
+      apiUrl: string;
       traderApiBaseUrl: string;
       traderPollingIntervalDefault: number;
       traderPollingIntervalPositions: number;

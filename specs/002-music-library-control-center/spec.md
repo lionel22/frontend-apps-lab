@@ -2,7 +2,7 @@
 
 **Feature Branch**: `[002-music-library-control-center]`
 **Created**: 2026-05-20
-**Status**: Draft
+**Status**: Ready for Implementation
 **Input**: Concevoir une UI basique et futuriste pour piloter les workflows d'ingestion, d'organisation et de recherche musicale afin d'alimenter un dossier local exploité par Navidrome.
 
 ## Problem / Goal
@@ -174,7 +174,24 @@ En tant qu'opérateur, je veux une interface claire, responsive et accessible af
 - **FR-028**: L'UI MUST gérer explicitement les cas de requête trop courte et d'absence de résultat sans présenter cela comme une erreur système.
 - **FR-029**: L'écran de recherche similaire MUST permettre de choisir un mode `LLM` ou `catalog`, le provider concret du mode `catalog` restant backend-driven avec Last.fm par défaut au MVP.
 - **FR-030**: La shortlist MUST indiquer le provider utilisé pour expliquer l'origine de la recommandation.
-- **FR-031**: En cas d'indisponibilité d'un provider, l'UI MUST présenter un fallback ou un message d'échec contrôlé sans casser le reste du workflow.
+- **FR-031**: En cas d'indisponibilité d'un provider, l'UI MUST présenter un message d'échec contrôlé, conserver la saisie et permettre une relance explicite ou un changement manuel de mode, sans fallback automatique frontend.
+- **FR-032**: Le monitoring des jobs et les KPI du cockpit MUST consommer une lecture canonique `GET /api/v1/music/ingestions` renvoyant une liste filtrable de jobs et des compteurs agrégés suffisants pour le MVP.
+- **FR-033**: Le transport temps réel MVP MUST rester en polling uniquement ; aucun comportement SSE n'est requis pour livrer les workflows MVP.
+- **FR-034**: La référence réutilisable issue de l'auto-completion MUST avoir une forme stable contenant au minimum `provider`, un identifiant externe ou un seed `title/artist`, et un libellé réutilisable par l'UI.
+- **FR-035**: Le dry-run d'organisation MUST être normalisé autour d'un payload stable contenant `summary`, `plannedMoves`, `skippedConflicts` et `ignoredItems`.
+- **FR-036**: Quand `NUXT_PUBLIC_MUSIC_REQUIRE_AUTH` est actif, le frontend MUST capturer un bearer token opérateur partagé, le persister dans une session frontend légère, et l'attacher à tous les appels API music.
+- **FR-037**: Le même endpoint `POST /api/v1/music/organize` MUST distinguer dry-run et apply via `dryRun`, et la réponse d'apply MUST retourner au minimum `organizationRunId`, `summary`, `appliedMoves`, `skippedConflicts`, `ignoredItems` et les erreurs unitaires quand présentes.
+
+## MVP Contract Decisions
+
+1. La page jobs et le dashboard dérivent leurs KPI simples du même endpoint `GET /api/v1/music/ingestions`; aucun endpoint KPI dédié n'est requis au MVP.
+2. Le rafraîchissement asynchrone reste en polling uniquement au MVP, avec intervalles configurables côté frontend.
+3. Une suggestion d'auto-completion expose une `reference` stable comprenant `provider`, `externalId` ou `title/artist`, `label`, et éventuellement une URL déjà résolue si le backend en fournit une.
+4. Le dry-run d'organisation retourne toujours `summary`, `plannedMoves`, `skippedConflicts` et `ignoredItems`, ce qui fige le contrat de normalisation frontend.
+5. En cas d'échec provider, l'UI garde les entrées opérateur, affiche un état contrôlé, et ne fait aucun fallback automatique entre `LLM` et `catalog`.
+6. Les limites d'upload affichées par défaut au MVP sont alignées sur le backend music et initialisées à 100 MB tant qu'aucun contrat de capability distinct n'existe.
+7. Si l'auth est requise, le token opérateur partagé est capturé une fois via une session frontend simple et injecté dans `useMusicApi` pour tous les appels music.
+8. `POST /api/v1/music/organize` utilise `dryRun=true` pour la prévisualisation et `dryRun=false` pour l'exécution, avec une réponse d'apply stable orientée résumé plus détails.
 
 ## Non-Functional Requirements
 
@@ -201,6 +218,8 @@ En tant qu'opérateur, je veux une interface claire, responsive et accessible af
 8. La multi-sélection et la création batch fonctionnent de bout en bout.
 9. Tous les écrans MVP gèrent correctement `loading`, `error`, `empty` et `success`.
 10. Les workflows MVP restent utilisables sur mobile et au clavier.
+11. La liste des jobs et les KPI simples du cockpit sont alimentés par la même lecture canonique de jobs sans endpoint dashboard dédié.
+12. Une indisponibilité provider produit un état contrôlé avec relance explicite ou changement manuel de mode, sans fallback automatique frontend.
 
 ## Risks / Assumptions
 
@@ -223,12 +242,8 @@ En tant qu'opérateur, je veux une interface claire, responsive et accessible af
 
 ## Open Questions
 
-1. Quelles limites exactes d'upload doivent être affichées dans l'UI ?
-2. Le backend fournit-il une progression fine ou seulement des statuts discrets ?
-3. Quel niveau de détail du diff dry-run est nécessaire pour rester utile et lisible ?
-4. Faut-il autoriser la suppression d'éléments d'un batch avant soumission ?
-5. Quelles métadonnées exactes seront disponibles dans les suggestions d'auto-completion et dans la shortlist de similarité ?
-6. Faut-il afficher explicitement les règles de naming Navidrome dans l'interface ?
+1. Faut-il afficher explicitement les règles de naming Navidrome dans l'interface principale ou seulement dans l'aide contextuelle ?
+2. Faut-il autoriser plus tard l'édition manuelle d'une shortlist avant batch au-delà de la simple désélection MVP ?
 
 ## Requirements Quality Checklist
 

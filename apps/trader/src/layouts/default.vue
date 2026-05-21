@@ -161,6 +161,7 @@ watch(
   <v-app class="bx-grid-bg">
     <v-navigation-drawer
       v-model="drawer"
+      mobile-breakpoint="md"
       :temporary="!isDesktop"
       width="240"
     >
