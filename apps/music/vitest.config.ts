@@ -1,9 +1,11 @@
 import { fileURLToPath, URL } from 'node:url';
 import vue from '@vitejs/plugin-vue';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type UserConfig } from 'vitest/config';
+
+const plugins = [vue()] as unknown as UserConfig['plugins'];
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins,
   test: {
     globals: true,
     environment: 'jsdom',

@@ -9,6 +9,8 @@
     "trader:build": "pnpm --filter @trader-frontend/trader build",
     "music:dev": "pnpm --filter @music-frontend/music dev",
     "music:build": "pnpm --filter @music-frontend/music build",
+    "music:image:build": "pnpm --filter @music-frontend/music image:build",
+    "music:image:build:push": "pnpm --filter @music-frontend/music image:build:push",
     "trader:image:build": "pnpm --filter @trader-frontend/trader image:build",
     "trader:image:build:push": "pnpm --filter @trader-frontend/trader image:build:push",
     "trader:preview": "pnpm --filter @trader-frontend/trader preview",

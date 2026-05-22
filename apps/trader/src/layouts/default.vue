@@ -18,6 +18,7 @@ const keyboard = useKeyboardShortcuts();
 const notifications = useNotifications();
 const ui = useUiStore();
 const trader = useTraderStore();
+const sessionExpiredDialog = ref(false);
 
 const isDesktop = computed(() => display.mdAndUp.value);
 
@@ -74,6 +75,20 @@ function toggleNavigation() {
   drawer.value = !drawer.value;
 }
 
+async function openSessionLogin() {
+  sessionExpiredDialog.value = false;
+  await navigateTo({
+    path: '/login',
+    query: { redirect: route.fullPath },
+  });
+}
+
+async function logoutFromSessionDialog() {
+  session.setToken(null);
+  sessionExpiredDialog.value = false;
+  await navigateTo('/login');
+}
+
 watch(
   () => ({
     requireAuth: session.requireAuth.value,
@@ -83,10 +98,16 @@ watch(
   }),
   ({ requireAuth, isAuthenticated, expired, currentPath }) => {
     if (!requireAuth || currentPath === '/login') {
+      sessionExpiredDialog.value = false;
       return;
     }
 
-    if (!isAuthenticated || expired) {
+    if (expired) {
+      sessionExpiredDialog.value = true;
+      return;
+    }
+
+    if (!isAuthenticated) {
       void navigateTo({
         path: '/login',
         query: { redirect: currentPath },
@@ -154,6 +175,15 @@ watch(
     drawer.value = false;
   },
   { immediate: true },
+);
+
+watch(
+  () => route.path,
+  (path) => {
+    if (path === '/login') {
+      sessionExpiredDialog.value = false;
+    }
+  },
 );
 </script>
 
@@ -243,6 +273,32 @@ watch(
         <slot />
       </v-container>
     </v-main>
+
+    <v-dialog
+      v-model="sessionExpiredDialog"
+      persistent
+      max-width="520"
+    >
+      <v-card>
+        <v-card-title class="text-h6">Session expired</v-card-title>
+        <v-card-text>
+          <p class="text-body-1 mb-4">
+            Your operator session expired or was rejected. Re-authenticate before continuing protected trading actions.
+          </p>
+          <v-alert type="warning" variant="tonal" class="mb-4">
+            Live updates and protected API calls will stay blocked until you sign in again.
+          </v-alert>
+          <div class="d-flex justify-end ga-2">
+            <v-btn variant="text" @click="logoutFromSessionDialog">
+              Logout
+            </v-btn>
+            <v-btn color="primary" variant="flat" @click="openSessionLogin">
+              Sign in again
+            </v-btn>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
 
     <SharedToast />
   </v-app>

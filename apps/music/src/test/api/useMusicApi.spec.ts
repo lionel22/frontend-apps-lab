@@ -150,6 +150,7 @@ describe('useMusicApi', () => {
             id: 'track-1',
             sourceLabel: 'Last.fm',
             suggestionRef: 'lastfm:123',
+            resolvedUrl: 'https://www.youtube.com/watch?v=aroundworld123',
           },
         ],
       }),
@@ -163,6 +164,9 @@ describe('useMusicApi', () => {
     expect(result[0]?.reference.externalId).toBe('lastfm:123');
     expect(result[0]?.reference.provider).toBe('lastfm');
     expect(result[0]?.reference.label).toBe('Around the World - Daft Punk');
+    expect(result[0]?.reference.resolvedUrl).toBe(
+      'https://www.youtube.com/watch?v=aroundworld123',
+    );
   });
 
   it('normalizes similar search responses and provider provenance', async () => {

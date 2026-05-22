@@ -82,7 +82,15 @@ export function useJobPolling(options: {
     music.setPollingEnabled(storedAutoRefreshEnabled);
   }
 
+  const canLoadJobs = computed(
+    () => !session.requireAuth.value || session.isAuthenticated.value,
+  );
+
   async function refresh(options: { manual?: boolean } = {}) {
+    if (!canLoadJobs.value) {
+      return music.jobs;
+    }
+
     const shouldUseRefreshingState =
       Boolean(music.jobsState.lastLoadedAt) || music.jobs.items.length > 0;
 
@@ -112,9 +120,7 @@ export function useJobPolling(options: {
   }
 
   const shouldPausePolling = computed(
-    () =>
-      !music.polling.enabled ||
-      (session.requireAuth.value && !session.isAuthenticated.value),
+    () => !music.polling.enabled || !canLoadJobs.value,
   );
 
   usePolling(

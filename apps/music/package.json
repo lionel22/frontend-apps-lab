@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "nuxt dev --dotenv .env",
     "build": "nuxt build --dotenv .env",
+    "image:build": "cd ../.. && docker build -f apps/music/Dockerfile -t ghcr.io/digitalyser/music-frontend:dev .",
+    "image:build:push": "cd ../.. && docker buildx build -f apps/music/Dockerfile --push --platform linux/amd64 --tag ghcr.io/digitalyser/music-frontend:dev .",
     "preview": "nuxt preview --dotenv .env",
     "typecheck": "nuxt typecheck --dotenv .env",
     "lint": "eslint src --ext .ts,.vue",

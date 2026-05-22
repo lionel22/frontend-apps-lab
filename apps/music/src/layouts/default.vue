@@ -11,6 +11,7 @@ const route = useRoute();
 const display = useDisplay();
 const session = useSession();
 const notifications = useNotifications();
+const sessionExpiredDialog = ref(false);
 
 const isDesktop = computed(() => display.mdAndUp.value);
 const authEnabled = computed(() => session.requireAuth.value);
@@ -73,6 +74,17 @@ async function toggleSession() {
   await openLogin();
 }
 
+async function openSessionRefresh() {
+  sessionExpiredDialog.value = false;
+  await openLogin();
+}
+
+async function resetTokenFromDialog() {
+  session.clearSession();
+  sessionExpiredDialog.value = false;
+  await openLogin();
+}
+
 watch(
   isDesktop,
   (desktop) => {
@@ -94,10 +106,21 @@ watch(
   [
     () => session.requireAuth.value,
     () => session.isAuthenticated.value,
+    () => session.expired.value,
     () => route.fullPath,
   ],
-  ([requireAuth, isAuthenticated, fullPath]) => {
-    if (import.meta.server || !requireAuth || isAuthenticated || route.path === '/login') {
+  ([requireAuth, isAuthenticated, expired, fullPath]) => {
+    if (import.meta.server || !requireAuth || route.path === '/login') {
+      sessionExpiredDialog.value = false;
+      return;
+    }
+
+    if (expired) {
+      sessionExpiredDialog.value = true;
+      return;
+    }
+
+    if (isAuthenticated) {
       return;
     }
 
@@ -109,6 +132,15 @@ watch(
       path: '/login',
       query: { redirect },
     });
+  },
+);
+
+watch(
+  () => route.path,
+  (path) => {
+    if (path === '/login') {
+      sessionExpiredDialog.value = false;
+    }
   },
 );
 
@@ -247,6 +279,32 @@ onUnmounted(() => {
         <slot />
       </v-container>
     </v-main>
+
+    <v-dialog
+      v-model="sessionExpiredDialog"
+      persistent
+      max-width="560"
+    >
+      <v-card>
+        <v-card-title class="text-h6">Shared token expired</v-card-title>
+        <v-card-text>
+          <p class="text-body-1 mb-4">
+            The shared operator token expired or was rejected. Refresh it before protected music API actions continue.
+          </p>
+          <v-alert type="warning" variant="tonal" class="mb-4">
+            Background requests will remain unauthorized until you save a fresh bearer token.
+          </v-alert>
+          <div class="d-flex justify-end ga-2">
+            <v-btn variant="text" @click="resetTokenFromDialog">
+              Reset token
+            </v-btn>
+            <v-btn color="primary" variant="flat" @click="openSessionRefresh">
+              Refresh token
+            </v-btn>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
 
     <SharedToast />
   </v-app>

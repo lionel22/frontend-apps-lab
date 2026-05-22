@@ -56,7 +56,7 @@ Source de verite locale: [`apps/trader/.env.example`](./.env.example).
 | --- | --- | --- | --- |
 | `HOST` | non | `0.0.0.0` | bind du serveur Nitro |
 | `PORT` | non | `3000` | port d'ecoute du conteneur |
-| `NUXT_PUBLIC_API_URL` | oui | aucune | base URL du backend trader |
+| `NUXT_PUBLIC_TRADER_API_BASE_URL` | oui | aucune | base URL canonique du backend trader |
 | `NUXT_PUBLIC_POLLING_INTERVAL_DEFAULT` | non | `30000` | polling par defaut des vues globales |
 | `NUXT_PUBLIC_POLLING_INTERVAL_POSITIONS` | non | `5000` | polling des positions |
 | `NUXT_PUBLIC_POLLING_INTERVAL_TRADES` | non | `10000` | polling des trades |
@@ -64,6 +64,8 @@ Source de verite locale: [`apps/trader/.env.example`](./.env.example).
 | `NUXT_PUBLIC_TRADER_AUTH_TOKEN` | non | vide | token public injecte au navigateur, a eviter sauf usage explicitement assume |
 
 Comme la configuration est portee par `runtimeConfig.public`, ces variables peuvent etre injectees au runtime pour Docker Compose ou Kubernetes sans rebuilder l'image.
+
+Compatibilite: `NUXT_PUBLIC_API_URL` reste accepte comme alias legacy, mais `NUXT_PUBLIC_TRADER_API_BASE_URL` est la variable de reference a utiliser pour les nouveaux environnements.
 
 Important: toute variable prefixee par `NUXT_PUBLIC_` est exposee au navigateur. Ne pas y stocker de secret.
 
@@ -100,7 +102,7 @@ image:
 
 env:
   PORT: '3000'
-  NUXT_PUBLIC_API_URL: https://api.example.com
+  NUXT_PUBLIC_TRADER_API_BASE_URL: https://api.example.com
   NUXT_PUBLIC_POLLING_INTERVAL_DEFAULT: '30000'
   NUXT_PUBLIC_POLLING_INTERVAL_POSITIONS: '5000'
   NUXT_PUBLIC_POLLING_INTERVAL_TRADES: '10000'
