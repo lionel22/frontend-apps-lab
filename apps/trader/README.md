@@ -61,7 +61,6 @@ Source de verite locale: [`apps/trader/.env.example`](./.env.example).
 | `NUXT_PUBLIC_POLLING_INTERVAL_POSITIONS` | non | `5000` | polling des positions |
 | `NUXT_PUBLIC_POLLING_INTERVAL_TRADES` | non | `10000` | polling des trades |
 | `NUXT_PUBLIC_TRADER_REQUIRE_AUTH` | non | `true` | active le garde d'authentification cote frontend |
-| `NUXT_PUBLIC_TRADER_AUTH_TOKEN` | non | vide | token public injecte au navigateur, a eviter sauf usage explicitement assume |
 
 Comme la configuration est portee par `runtimeConfig.public`, ces variables peuvent etre injectees au runtime pour Docker Compose ou Kubernetes sans rebuilder l'image.
 
@@ -113,7 +112,7 @@ envFrom:
       name: trader-frontend-secrets
 ```
 
-Le seul secret potentiel cote frontend est `NUXT_PUBLIC_TRADER_AUTH_TOKEN`, a utiliser seulement si vous acceptez qu'il soit expose au navigateur. Par defaut, preferer une authentification utilisateur normale.
+Les variables `NUXT_PUBLIC_*` sont exposees au navigateur. Ne pas y placer de secret.
 
 ## Notes infra
 

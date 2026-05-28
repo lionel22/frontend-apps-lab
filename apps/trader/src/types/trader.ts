@@ -3,7 +3,14 @@ export type MarketScope = 'spot' | 'isolated_margin' | 'legacy_futures';
 export type SpotMarketScope = 'spot';
 export type SignalTimeframe = '1h' | '4h' | '1d';
 export type BacktestTimeframe = '4h' | '1d';
-export type BacktestRunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+export type BacktestRunStatus =
+  | 'PENDING'
+  | 'QUEUED'
+  | 'VALIDATING'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELED';
 export type AuditSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type PositionSide = 'LONG' | 'SHORT';
 export type TradeSide = 'LONG' | 'SHORT';
@@ -291,6 +298,7 @@ export interface BacktestRunSummary {
     marketScope?: MarketScope;
   };
   metrics: Record<string, number>;
+  failureReason: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   createdAt: string;

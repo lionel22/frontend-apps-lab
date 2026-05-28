@@ -42,8 +42,14 @@ export default defineNuxtConfig({
         },
         openReplay: {
           enabled: process.env.NUXT_PUBLIC_OPENREPLAY_ENABLED === 'true',
-          projectKey: process.env.NUXT_PUBLIC_OPENREPLAY_PROJECT_KEY ?? '',
-          ingestPoint: process.env.NUXT_PUBLIC_OPENREPLAY_INGEST_POINT ?? '',
+          projectKey:
+            process.env.OPEN_REPLAY_PROJECT_KEY ??
+            process.env.NUXT_PUBLIC_OPENREPLAY_PROJECT_KEY ??
+            '',
+          ingestPoint:
+            process.env.OPEN_REPLAY_PROJECT_INGESTION_URL ??
+            process.env.NUXT_PUBLIC_OPENREPLAY_INGEST_POINT ??
+            '',
           sampleRate: Number(
             process.env.NUXT_PUBLIC_OPENREPLAY_SAMPLE_RATE ?? 0.1,
           ),

@@ -157,11 +157,6 @@ export function useSession() {
       return;
     }
 
-    const runtimeToken =
-      typeof runtimeConfig.public.traderAuthToken === 'string'
-        ? runtimeConfig.public.traderAuthToken
-        : '';
-
     const storedActor = readStorageString(STORAGE_KEYS.actor);
     const storedRole = parseRole(readStorageString(STORAGE_KEYS.role));
     const storedToken = readStorageString(STORAGE_KEYS.token);
@@ -176,7 +171,7 @@ export function useSession() {
 
     const nextActor = storedActor ?? cookieActor ?? state.value.actor;
     const nextRole = storedRole ?? cookieRole ?? state.value.role;
-    const nextToken = storedToken ?? cookieToken ?? (runtimeToken || null);
+    const nextToken = storedToken ?? cookieToken ?? null;
     const nextLastLoginAt =
       storedLastLoginAt ??
       cookieLastLoginAt ??

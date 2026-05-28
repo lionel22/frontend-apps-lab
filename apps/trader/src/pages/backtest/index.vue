@@ -8,7 +8,11 @@ import { usePolling } from '~/composables/usePolling';
 const trader = useTraderStore();
 const launchOpen = ref(false);
 const launching = ref(false);
-const symbolOptions = computed(() => trader.watchlist.map((asset) => asset.symbol));
+const symbolOptions = computed(() => {
+  const fromWatchlist = trader.watchlist.map((asset) => asset.symbol);
+  const fromHistory = trader.backtests.items.flatMap((run) => run.params.symbols);
+  return Array.from(new Set([...fromWatchlist, ...fromHistory].filter(Boolean)));
+});
 const shouldPausePolling = useLiveFeedPollingPause();
 
 async function refresh(force = false) {
@@ -49,6 +53,24 @@ async function onPageChange(offset: number, limit: number) {
   await trader.fetchBacktestList(offset, limit, true);
 }
 
+async function onDelete(runId: string) {
+  if (!runId) {
+    return;
+  }
+
+  if (import.meta.client) {
+    const confirmed = window.confirm(
+      `Delete backtest ${runId.slice(0, 8)}? This cannot be undone.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  await trader.deleteBacktest(runId);
+  await refresh(true);
+}
+
 async function openLaunchModal() {
   await trader.fetchWatchlist();
   launchOpen.value = true;
@@ -68,6 +90,7 @@ function openDetail(runId: string) {
       :loading="trader.loading.backtests"
       @launch="openLaunchModal"
       @open="openDetail"
+      @delete="onDelete"
       @page-change="onPageChange"
     />
 

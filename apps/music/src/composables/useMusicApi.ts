@@ -569,6 +569,23 @@ export function useMusicApi() {
     }),
   );
 
+  async function validateOperatorSession(token: string): Promise<void> {
+    const candidateToken = token.trim();
+    if (!candidateToken) {
+      throw new Error('Bearer token is required.');
+    }
+
+    await createApiClient({
+      baseUrl: baseUrl.value,
+      serviceLabel: 'Music API',
+      getToken: () => candidateToken,
+    }).request<unknown>(MUSIC_API_ENDPOINTS.ingestions, {
+      query: {
+        limit: 1,
+      },
+    });
+  }
+
   async function submitUrlIngestion(
     input: MusicUrlIngestionInput,
   ): Promise<MusicSubmissionResultViewModel> {
@@ -725,6 +742,7 @@ export function useMusicApi() {
   return {
     baseUrl,
     isConfigured: computed(() => baseUrl.value.length > 0),
+    validateOperatorSession,
     submitUrlIngestion,
     uploadIngestion,
     fetchIngestions,

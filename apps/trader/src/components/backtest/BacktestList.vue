@@ -10,6 +10,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   launch: [];
   open: [runId: string];
+  delete: [runId: string];
   'page-change': [offset: number, limit: number];
 }>();
 
@@ -58,16 +59,18 @@ function nextPage() {
           <tr>
             <th>Run</th>
             <th>Status</th>
+            <th>Failure reason</th>
             <th>Symbols</th>
             <th>Timeframe</th>
             <th>Sharpe</th>
             <th>Max Drawdown</th>
             <th>Finished</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="!pagedBacktests.items.length">
-            <td colspan="7" class="text-center py-8 text-medium-emphasis">
+            <td colspan="9" class="text-center py-8 text-medium-emphasis">
               No backtest runs found.
             </td>
           </tr>
@@ -88,11 +91,40 @@ function nextPage() {
                 {{ run.status }}
               </v-chip>
             </td>
+            <td>
+              <v-tooltip
+                v-if="run.failureReason"
+                location="top"
+                max-width="620"
+              >
+                <template #activator="{ props: tooltipProps }">
+                  <span
+                    v-bind="tooltipProps"
+                    class="d-inline-block text-truncate"
+                    style="max-width: 340px"
+                  >
+                    {{ run.failureReason }}
+                  </span>
+                </template>
+                <span>{{ run.failureReason }}</span>
+              </v-tooltip>
+              <span v-else class="text-medium-emphasis">-</span>
+            </td>
             <td>{{ run.params.symbols.join(', ') }}</td>
             <td>{{ run.params.timeframe || '-' }}</td>
             <td>{{ (run.metrics.sharpeRatio ?? 0).toFixed(2) }}</td>
             <td>{{ (run.metrics.maxDrawdown ?? 0).toFixed(2) }}</td>
             <td>{{ formatDateTime(run.finishedAt || run.createdAt) }}</td>
+            <td>
+              <v-btn
+                icon="mdi-delete-outline"
+                size="small"
+                color="error"
+                variant="text"
+                aria-label="Delete backtest"
+                @click.stop="emit('delete', run.id)"
+              />
+            </td>
           </tr>
         </tbody>
       </v-table>

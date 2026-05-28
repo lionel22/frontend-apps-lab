@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useMusicApi } from '~/composables/useMusicApi';
 import { useSession } from '~/composables/useSession';
 
 definePageMeta({
@@ -7,11 +8,13 @@ definePageMeta({
 });
 
 const route = useRoute();
+const api = useMusicApi();
 const session = useSession();
 
 const actor = ref(session.actor.value);
 const token = ref(session.token.value ?? '');
 const isSubmitting = ref(false);
+const submitError = ref<string | null>(null);
 
 const redirectTarget = computed(() => {
   const redirect = route.query.redirect;
@@ -32,9 +35,11 @@ async function submit() {
   }
 
   isSubmitting.value = true;
+  submitError.value = null;
 
   try {
     if (session.requireAuth.value) {
+      await api.validateOperatorSession(token.value);
       session.setSession({
         actor: actor.value.trim() || 'music-operator',
         token: token.value.trim(),
@@ -42,6 +47,11 @@ async function submit() {
     }
 
     await navigateTo(redirectTarget.value);
+  } catch (error) {
+    submitError.value =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : 'Unable to validate the shared bearer token.';
   } finally {
     isSubmitting.value = false;
   }
@@ -50,6 +60,7 @@ async function submit() {
 function clearToken() {
   session.clearSession();
   token.value = '';
+  submitError.value = null;
 }
 </script>
 
@@ -77,6 +88,15 @@ function clearToken() {
         class="mb-4"
       >
         This environment does not require auth. Continue directly to the shell.
+      </v-alert>
+
+      <v-alert
+        v-if="submitError"
+        type="error"
+        variant="tonal"
+        class="mb-4"
+      >
+        {{ submitError }}
       </v-alert>
 
       <form @submit.prevent="submit">

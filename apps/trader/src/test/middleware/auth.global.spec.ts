@@ -37,7 +37,7 @@ describe('auth.global middleware', () => {
     });
   });
 
-  it('does not redirect during server-side evaluation', async () => {
+  it('redirects during server-side evaluation when route is protected', async () => {
     session.requireAuth.value = true;
     session.isAuthenticated.value = false;
 
@@ -48,14 +48,16 @@ describe('auth.global middleware', () => {
     });
 
     try {
-      const result = await middleware({
+      await middleware({
         path: '/status',
         fullPath: '/status',
         query: {},
       } as never);
 
-      expect(result).toBeUndefined();
-      expect(globalThis.navigateTo).not.toHaveBeenCalled();
+      expect(globalThis.navigateTo).toHaveBeenCalledWith({
+        path: '/login',
+        query: { redirect: '/status' },
+      });
     } finally {
       Object.defineProperty(globalThis, 'process', {
         value: originalProcess,

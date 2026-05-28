@@ -9,10 +9,13 @@ declare global {
       traderPollingIntervalDefault: number;
       traderPollingIntervalPositions: number;
       traderPollingIntervalTrades: number;
-      traderAuthToken: string;
       traderRequireAuth: boolean;
     };
   };
+  var useCookie: <T>(
+    key: string,
+    options?: { default?: () => unknown },
+  ) => Ref<T>;
   var navigateTo: (path: string) => Promise<string>;
   var defineNuxtRouteMiddleware: <T>(handler: T) => T;
   var definePageMeta: (meta: Record<string, unknown>) => void;

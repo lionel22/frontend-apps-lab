@@ -28,7 +28,6 @@ export default defineNuxtConfig({
       traderPollingIntervalTrades: Number(
         process.env.NUXT_PUBLIC_POLLING_INTERVAL_TRADES ?? 10000,
       ),
-      traderAuthToken: process.env.NUXT_PUBLIC_TRADER_AUTH_TOKEN ?? '',
       traderRequireAuth:
         process.env.NUXT_PUBLIC_TRADER_REQUIRE_AUTH === 'true',
     },

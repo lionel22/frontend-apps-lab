@@ -360,4 +360,33 @@ describe('useMusicApi', () => {
     expect(session.isAuthenticated.value).toBe(false);
     expect(ui.alerts[0]?.message).toContain('Shared operator token rejected');
   });
+
+  it('validates a candidate shared token before persisting a login session', async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValueOnce(
+      createJsonResponse({
+        items: [],
+        summary: {
+          queued: 0,
+          processing: 0,
+          success: 0,
+          failed: 0,
+          active: 0,
+          recentFailures: 0,
+        },
+      }),
+    );
+
+    const session = useSession();
+    const api = useMusicApi();
+
+    await expect(api.validateOperatorSession('candidate-token')).resolves.toBeUndefined();
+
+    const [requestUrl, requestInit] = fetchMock.mock.calls[0] ?? [];
+    expect(requestUrl).toBe('http://localhost:4000/api/v1/music/ingestions?limit=1');
+    expect(requestInit?.headers).toMatchObject({
+      Authorization: 'Bearer candidate-token',
+    });
+    expect(session.isAuthenticated.value).toBe(true);
+  });
 });

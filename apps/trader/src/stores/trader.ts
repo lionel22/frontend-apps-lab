@@ -441,6 +441,27 @@ export const useTraderStore = defineStore('trader', () => {
     return response;
   }
 
+  async function deleteBacktest(runId: string) {
+    if (!runId) {
+      return null;
+    }
+
+    const result = await api.deleteBacktest(runId);
+    cache.invalidate('backtests');
+    cache.invalidate('backtestDetail');
+
+    if (backtestDetail.value?.id === runId) {
+      backtestDetail.value = null;
+    }
+
+    ui.addAlert({
+      type: 'success',
+      message: `Backtest ${runId} deleted successfully.`,
+    });
+
+    return result;
+  }
+
   async function executeKillSwitch(payload: ControlActionPayload) {
     const validationErrors = validateControlAction(payload.actor, payload.reason);
     if (Object.keys(validationErrors).length) {
@@ -544,6 +565,7 @@ export const useTraderStore = defineStore('trader', () => {
     fetchCorrelation,
     fetchAuditLog,
     launchBacktest,
+    deleteBacktest,
     executeKillSwitch,
     resumeTrading,
     updateConfig,

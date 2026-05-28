@@ -26,6 +26,7 @@ export const API_ENDPOINTS = {
   backtests: '/api/v1/backtest',
   backtestDetail: (id: string): string => `/api/v1/backtest/${id}`,
   backtestLaunch: '/api/v1/backtest/launch',
+  backtestDelete: (id: string): string => `/api/v1/backtest/${id}`,
   config: '/api/v1/config',
   configWeights: '/api/v1/config/weights',
   controlKillSwitch: '/api/v1/control/kill-switch',

@@ -52,6 +52,10 @@ function createCorrelationId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function isLocalhostHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1';
+}
+
 export default defineNuxtPlugin(async () => {
   const win = globalThis as ObservabilityWindow;
 
@@ -119,10 +123,12 @@ export default defineNuxtPlugin(async () => {
   }
 
   const { default: Tracker } = await import('@openreplay/tracker');
+  const localDevHttp = isLocalhostHost(globalThis.location.hostname);
 
   const tracker = new Tracker({
     projectKey: observability.openReplay.projectKey,
     ingestPoint: observability.openReplay.ingestPoint || undefined,
+    __DISABLE_SECURE_MODE: localDevHttp,
   });
 
   void tracker

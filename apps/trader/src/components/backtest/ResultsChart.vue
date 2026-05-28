@@ -168,13 +168,13 @@ const dateRange = computed(() => {
 
         <!-- Failed error message -->
         <v-alert
-          v-if="run.status === 'FAILED' && run.metrics?.error"
+          v-if="run.status === 'FAILED' && run.failureReason"
           type="error"
           variant="tonal"
           class="mt-3"
           density="compact"
         >
-          {{ run.metrics.error }}
+          {{ run.failureReason }}
         </v-alert>
       </v-card-text>
     </v-card>

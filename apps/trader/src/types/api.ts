@@ -16,9 +16,16 @@ export interface ApiError {
   fieldErrors?: Record<string, string[]>;
 }
 
+export interface UnauthorizedRequestContext {
+  status: 401;
+  method: HttpMethod;
+  path: string;
+  url: string;
+}
+
 export interface ApiClientConfig {
   baseUrl: string;
   getToken?: () => string | null;
-  onUnauthorized?: () => void;
+  onUnauthorized?: (context: UnauthorizedRequestContext) => void;
   onRateLimited?: () => void;
 }

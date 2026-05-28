@@ -1,4 +1,9 @@
-import type { ApiClientConfig, ApiError, ApiRequestOptions } from '~/types/api';
+import type {
+  ApiClientConfig,
+  ApiError,
+  ApiRequestOptions,
+  HttpMethod,
+} from '~/types/api';
 
 function buildQueryString(
   query?: Record<string, string | number | boolean | null | undefined>,
@@ -152,6 +157,8 @@ export class ApiClient {
     options: ApiRequestOptions = {},
   ): Promise<T> {
     const response = await this.executeRequest(path, options);
+    const method = (options.method ?? 'GET') as HttpMethod;
+    const requestUrl = this.buildUrl(path, options.query);
 
     const payload = await parseResponseBody(response);
 
@@ -165,7 +172,12 @@ export class ApiClient {
       };
 
       if (response.status === 401) {
-        this.config.onUnauthorized?.();
+        this.config.onUnauthorized?.({
+          status: 401,
+          method,
+          path,
+          url: requestUrl,
+        });
       }
 
       if (response.status === 429) {
@@ -183,6 +195,8 @@ export class ApiClient {
     options: ApiRequestOptions = {},
   ): Promise<{ blob: Blob; headers: Headers }> {
     const response = await this.executeRequest(path, options);
+    const method = (options.method ?? 'GET') as HttpMethod;
+    const requestUrl = this.buildUrl(path, options.query);
 
     if (!response.ok) {
       const payload = await parseResponseBody(response);
@@ -195,7 +209,12 @@ export class ApiClient {
       };
 
       if (response.status === 401) {
-        this.config.onUnauthorized?.();
+        this.config.onUnauthorized?.({
+          status: 401,
+          method,
+          path,
+          url: requestUrl,
+        });
       }
 
       if (response.status === 429) {

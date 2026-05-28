@@ -1,1 +1,2 @@
 - For the built music frontend Nitro server, runtime override for public.musicApiBaseUrl must use NUXT_PUBLIC_MUSIC_API_BASE_URL; NUXT_PUBLIC_MUSIC_API_URL only affects the nuxt.config default and is insufficient for live server QA.
+- Save generated local artifacts (screenshots, QA reports, audit exports) under .artifacts/ at repo root; this folder is gitignored.

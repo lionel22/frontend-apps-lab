@@ -38,3 +38,6 @@ Thumbs.db
 .nuxt
 .output
 .next
+
+# Local generated artifacts (screenshots, audits, temp reports)
+.artifacts/

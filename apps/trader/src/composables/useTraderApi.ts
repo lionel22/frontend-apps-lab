@@ -155,9 +155,12 @@ function parseBacktestTimeframe(value: unknown): BacktestTimeframe | undefined {
 function parseBacktestRunStatus(value: unknown): BacktestRunStatus {
   const status = parseString(value, 'PENDING');
   if (
+    status === 'QUEUED' ||
+    status === 'VALIDATING' ||
     status === 'RUNNING' ||
     status === 'COMPLETED' ||
-    status === 'FAILED'
+    status === 'FAILED' ||
+    status === 'CANCELED'
   ) {
     return status;
   }
@@ -506,6 +509,7 @@ function mapPagedResponse<T>(
 function mapBacktestSummary(value: unknown): BacktestRunSummary {
   const row = asRecord(value);
   const params = asRecord(row.params);
+  const metrics = asRecord(row.metrics);
 
   return {
     id: parseString(row.id),
@@ -520,7 +524,8 @@ function mapBacktestSummary(value: unknown): BacktestRunSummary {
       endDate: parseString(params.endDate) || null,
       marketScope: parseMarketScope(params.marketScope),
     },
-    metrics: normalizeNumericRecord(row.metrics),
+    metrics: normalizeNumericRecord(metrics),
+    failureReason: parseString(metrics.error) || null,
     startedAt: parseIsoDate(row.startedAt) || null,
     finishedAt: parseIsoDate(row.finishedAt) || null,
     createdAt: parseIsoDate(row.createdAt),
@@ -732,7 +737,15 @@ export function useTraderApiClient() {
   const client = createApiClient({
     baseUrl: parseString(runtimeConfig.public.traderApiBaseUrl, ''),
     getToken: () => session.token.value,
-    onUnauthorized: () => {
+    onUnauthorized: (context) => {
+      if (import.meta.client) {
+        // Diagnostic mode: keep current logout behavior but expose the exact 401 source.
+        console.warn('[Trader API] Unauthorized request', context);
+      }
+      ui.addAlert({
+        type: 'warning',
+        message: `Session rejected on ${context.method} ${context.path} (401).`,
+      });
       session.markUnauthorized();
     },
     onRateLimited: () => {
@@ -1027,6 +1040,15 @@ export function useTraderContracts() {
         },
       ),
 
+    deleteBacktest: (id: string) =>
+      request(
+        API_ENDPOINTS.backtestDelete(id),
+        {
+          method: 'DELETE',
+        },
+        mapVoidOk,
+      ),
+
     fetchConfig: () =>
       request(API_ENDPOINTS.config, { method: 'GET' }, (payload) => {
         if (!payload) {
@@ -1146,6 +1168,7 @@ export function useTraderContracts() {
     ) => Promise<PagedResponse<BacktestRunSummary>>;
     fetchBacktestDetail: (id: string) => Promise<BacktestRunDetail>;
     launchBacktest: (payload: BacktestLaunchPayload) => Promise<{ runId: string }>;
+    deleteBacktest: (id: string) => Promise<{ ok: true }>;
     fetchConfig: () => Promise<WeightProfile | null>;
     updateConfig: (payload: WeightProfileUpdatePayload) => Promise<WeightProfile>;
     triggerKillSwitch: (payload: ControlActionPayload) => Promise<{ ok: true }>;
