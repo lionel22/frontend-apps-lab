@@ -133,6 +133,7 @@ function buildRefreshPlan(eventTypes: Iterable<string>): RefreshPlan {
 
 export function useSSE() {
   const runtimeConfig = useRuntimeConfig();
+  const route = useRoute();
   const session = useSession();
   const sse = useSseStore();
   const holdings = useHoldingsStore();
@@ -442,6 +443,16 @@ export function useSSE() {
           const contentType = response.headers.get('content-type') ?? '';
 
           if (!response.ok) {
+            if (response.status === 401) {
+              session.markUnauthorized();
+              if (import.meta.client && route.path !== '/login') {
+                void navigateTo({
+                  path: '/login',
+                  query: { redirect: route.fullPath },
+                });
+              }
+            }
+
             throw new Error(
               `Live feed request failed with status ${response.status}.`,
             );

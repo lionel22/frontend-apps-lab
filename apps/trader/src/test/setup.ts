@@ -36,6 +36,11 @@ globalThis.useCookie = ((key: string, options?: { default?: () => unknown }) => 
 }) as typeof globalThis.useCookie;
 
 globalThis.navigateTo = vi.fn(async (path: string) => path) as typeof globalThis.navigateTo;
+globalThis.useRoute = (() => ({
+  path: '/',
+  fullPath: '/',
+  query: {},
+})) as typeof globalThis.useRoute;
 globalThis.defineNuxtRouteMiddleware = ((handler: unknown) =>
   handler) as typeof globalThis.defineNuxtRouteMiddleware;
 globalThis.definePageMeta = (() => undefined) as typeof globalThis.definePageMeta;

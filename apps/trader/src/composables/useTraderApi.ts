@@ -731,6 +731,7 @@ function mapVoidOk(value: unknown): { ok: true } {
 
 export function useTraderApiClient() {
   const runtimeConfig = useRuntimeConfig();
+  const route = useRoute();
   const session = useSession();
   const ui = useUiStore();
 
@@ -739,7 +740,7 @@ export function useTraderApiClient() {
     getToken: () => session.token.value,
     onUnauthorized: (context) => {
       if (import.meta.client) {
-        // Diagnostic mode: keep current logout behavior but expose the exact 401 source.
+        // Keep this log for field diagnosis when the backend rejects a token.
         console.warn('[Trader API] Unauthorized request', context);
       }
       ui.addAlert({
@@ -747,6 +748,13 @@ export function useTraderApiClient() {
         message: `Session rejected on ${context.method} ${context.path} (401).`,
       });
       session.markUnauthorized();
+
+      if (import.meta.client && route.path !== '/login') {
+        void navigateTo({
+          path: '/login',
+          query: { redirect: route.fullPath },
+        });
+      }
     },
     onRateLimited: () => {
       ui.addAlert({

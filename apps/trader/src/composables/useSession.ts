@@ -241,11 +241,6 @@ export function useSession() {
 
   function markUnauthorized() {
     state.value.expired = true;
-    if (state.value.requireAuth) {
-      state.value.token = null;
-      writeStorageString(STORAGE_KEYS.token, null);
-      writeCookieString(tokenCookie, null);
-    }
   }
 
   function markAuthorized() {
@@ -259,7 +254,9 @@ export function useSession() {
   bootstrap();
 
   const isAuthenticated = computed(
-    () => !state.value.requireAuth || Boolean(state.value.token),
+    () =>
+      !state.value.requireAuth ||
+      (Boolean(state.value.token) && !state.value.expired),
   );
   const msUntilExpiry = computed(() => {
     if (!state.value.expiresAt) {
